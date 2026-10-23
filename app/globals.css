@@ -65,17 +65,19 @@
   --spacing-space-lg: 1.5rem;
   --spacing-space-xl: 2.5rem;
 
-  --font-headline-md: var(--font-plus-jakarta-sans, "Plus Jakarta Sans", sans-serif);
-  --font-numpad-display: var(--font-plus-jakarta-sans, "Plus Jakarta Sans", sans-serif);
-  --font-label-md: var(--font-inter, "Inter", sans-serif);
-  --font-label-sm: var(--font-inter, "Inter", sans-serif);
-  --font-headline-sm: var(--font-plus-jakarta-sans, "Plus Jakarta Sans", sans-serif);
-  --font-body-sm: var(--font-inter, "Inter", sans-serif);
-  --font-headline-lg-mobile: var(--font-plus-jakarta-sans, "Plus Jakarta Sans", sans-serif);
-  --font-body-lg: var(--font-inter, "Inter", sans-serif);
-  --font-body-md: var(--font-inter, "Inter", sans-serif);
-  --font-label-lg: var(--font-inter, "Inter", sans-serif);
-  --font-headline-lg: var(--font-plus-jakarta-sans, "Plus Jakarta Sans", sans-serif);
+  --font-headline-md: "Plus Jakarta Sans", sans-serif;
+  --font-sans: "Plus Jakarta Sans", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  --font-numpad-display: "Plus Jakarta Sans", sans-serif;
+  --font-label-md: "Inter", sans-serif;
+  --font-label-sm: "Inter", sans-serif;
+  --font-headline-sm: "Plus Jakarta Sans", sans-serif;
+  --font-body-sm: "Inter", sans-serif;
+  --font-headline-lg-mobile: "Plus Jakarta Sans", sans-serif;
+  --font-body-lg: "Inter", sans-serif;
+  --font-body-md: "Inter", sans-serif;
+  --font-label-lg: "Inter", sans-serif;
+  --font-headline-lg: "Plus Jakarta Sans", sans-serif;
 
   --text-headline-md: 24px;
   --text-headline-md--line-height: 32px;

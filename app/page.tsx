@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { BrowserQRCodeReader } from "@zxing/browser";
 import type { IScannerControls } from "@zxing/browser";
 import type { Result } from "@zxing/library";
@@ -205,27 +206,25 @@ export default function Home() {
       <header className="fixed top-0 w-full z-50 bg-surface/85 backdrop-blur-xl pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
         <div className="h-16 px-space-lg flex items-center justify-between gap-space-sm">
           <div className="flex items-center gap-space-sm min-w-0 flex-1">
-            <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center flex-shrink-0">
-              <span className="material-symbols-outlined text-on-primary text-[18px]">medication</span>
-            </div>
+            <img src="/endod_logo.jpeg" alt="Endod Health" className="h-12 w-auto object-contain flex-shrink-0 bg-transparent mix-blend-multiply" />
             <div className="flex flex-col min-w-0">
-              <span className="font-headline-sm text-headline-sm text-on-surface truncate">PharmaVerify</span>
+              <span className="font-headline-sm text-headline-sm text-on-surface truncate">Endod Health</span>
               <div className="flex items-center gap-1">
                 <span className="relative flex h-2 w-2">
                   {status === "scanning" && (
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-secondary opacity-75"></span>
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-black opacity-75"></span>
                   )}
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-secondary"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-black"></span>
                 </span>
-                <span className="font-label-sm text-label-sm text-secondary truncate">
+                <span className="font-label-sm text-label-sm text-black truncate">
                   {status === "scanning" ? "Scanning" : status === "success" ? "Scan locked" : "Idle"}
                 </span>
               </div>
             </div>
           </div>
           <div className="flex items-center gap-space-xs flex-shrink-0">
-            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-              <span className="material-symbols-outlined text-on-primary text-[18px]">person</span>
+            <div className="w-8 h-8 rounded-full bg-black flex items-center justify-center">
+              <span className="material-symbols-outlined text-white text-[18px]">person</span>
             </div>
           </div>
         </div>
@@ -236,7 +235,7 @@ export default function Home() {
           {/* Scanner card */}
           <div className="w-full max-w-md md:max-w-lg lg:max-w-2xl mx-auto bg-surface-container-lowest rounded-xl p-space-lg lg:p-space-xl shadow-sm flex flex-col items-center">
             <div className="w-full flex items-center justify-between mb-space-sm px-1">
-              <div className="flex items-center gap-1.5 text-primary">
+              <div className="flex items-center gap-1.5 text-black">
                 <span className="material-symbols-outlined text-[18px]">document_scanner</span>
                 <span className="font-label-lg text-label-lg">Optical Rx Sensor</span>
               </div>
@@ -254,12 +253,12 @@ export default function Home() {
                 autoPlay
               />
               <div className="relative w-48 h-48 sm:w-56 sm:h-56 flex items-center justify-center pointer-events-none">
-                <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-primary-fixed rounded-tl-lg shadow-[0_0_8px_rgba(137,245,231,0.6)]"></div>
-                <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-primary-fixed rounded-tr-lg shadow-[0_0_8px_rgba(137,245,231,0.6)]"></div>
-                <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-primary-fixed rounded-bl-lg shadow-[0_0_8px_rgba(137,245,231,0.6)]"></div>
-                <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-primary-fixed rounded-br-lg shadow-[0_0_8px_rgba(137,245,231,0.6)]"></div>
+                <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-black rounded-tl-lg shadow-[0_0_8px_rgba(0,0,0,0.4)]"></div>
+                <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-black rounded-tr-lg shadow-[0_0_8px_rgba(0,0,0,0.4)]"></div>
+                <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-black rounded-bl-lg shadow-[0_0_8px_rgba(0,0,0,0.4)]"></div>
+                <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-black rounded-br-lg shadow-[0_0_8px_rgba(0,0,0,0.4)]"></div>
                 {status === "scanning" && (
-                  <div className="absolute left-2 right-2 h-0.5 bg-gradient-to-r from-transparent via-secondary-fixed to-transparent shadow-[0_0_12px_#85f8c4] animate-pulse" />
+                  <div className="absolute left-2 right-2 h-0.5 bg-gradient-to-r from-transparent via-black to-transparent shadow-[0_0_12px_rgba(0,0,0,0.4)] animate-pulse" />
                 )}
               </div>
               {status !== "scanning" && (
@@ -276,8 +275,8 @@ export default function Home() {
                     onClick={handleTorch}
                     className={`w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-95 shadow-sm ${
                       torchOn
-                        ? "bg-primary text-on-primary"
-                        : "bg-inverse-surface/75 text-inverse-on-surface hover:bg-inverse-surface"
+                        ? "bg-black text-white hover:bg-gray-800"
+                        : "bg-black/75 text-white hover:bg-black"
                     }`}
                   >
                     <span className="material-symbols-outlined text-[18px]">{torchOn ? "flash_on" : "flash_off"}</span>
@@ -287,7 +286,7 @@ export default function Home() {
                   <button
                     aria-label="Switch Camera"
                     onClick={handleSwitchCamera}
-                    className="w-9 h-9 rounded-full bg-inverse-surface/75 text-inverse-on-surface flex items-center justify-center hover:bg-inverse-surface transition-all active:scale-95 shadow-sm"
+                    className="w-9 h-9 rounded-full bg-black/75 text-white flex items-center justify-center hover:bg-black transition-all active:scale-95 shadow-sm"
                   >
                     <span className="material-symbols-outlined text-[18px]">flip_camera_ios</span>
                   </button>
@@ -296,7 +295,7 @@ export default function Home() {
             </div>
 
             <div className="w-full mt-space-md flex flex-col sm:flex-row items-center justify-between gap-space-sm">
-              <div className="flex items-center gap-1.5 text-secondary">
+              <div className="flex items-center gap-1.5 text-black">
                 <span className="material-symbols-outlined text-[18px]">
                   {status === "success" ? "check_circle" : status === "error" ? "error" : "center_focus_strong"}
                 </span>
@@ -312,7 +311,7 @@ export default function Home() {
                 />
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="px-4 py-2 bg-surface-container text-on-surface font-label-md text-label-md rounded-xl hover:bg-surface-container-high transition-colors flex items-center justify-center gap-1.5"
+                  className="px-4 py-2 bg-black text-white font-label-md text-label-md rounded-xl hover:bg-gray-800 transition-colors flex items-center justify-center gap-1.5"
                 >
                   <span className="material-symbols-outlined text-[18px]">photo_library</span>
                   <span>Upload QR</span>
@@ -320,7 +319,7 @@ export default function Home() {
                 {status !== "scanning" && (
                   <button
                     onClick={resetScan}
-                    className="px-4 py-2 bg-primary text-on-primary font-label-md text-label-md rounded-xl hover:bg-primary-container transition-colors flex items-center justify-center gap-1.5"
+                    className="px-4 py-2 bg-black text-white font-label-md text-label-md rounded-xl hover:bg-gray-800 transition-colors flex items-center justify-center gap-1.5"
                   >
                     <span className="material-symbols-outlined text-[18px]">refresh</span>
                     <span>Rescan</span>
@@ -349,13 +348,13 @@ export default function Home() {
             <div className="flex items-start justify-between gap-2 mb-space-sm">
               <div>
                 <label className="font-headline-sm text-headline-sm text-on-surface block" htmlFor="otp-input-field">
-                  Patient SMS Verification Code
+                  Patient Verification Code
                 </label>
                 <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
                   Sent to patient phone on file
                 </p>
               </div>
-              <span className="material-symbols-outlined text-primary text-[24px]">sms</span>
+              <span className="material-symbols-outlined text-black text-[24px]">sms</span>
             </div>
             <input
               aria-label="Enter 6 digit authorization code"
@@ -379,7 +378,7 @@ export default function Home() {
                 if (ch !== undefined) {
                   cls += " bg-surface-container-low text-on-surface";
                 } else if (isCursor) {
-                  cls += " bg-surface-container-highest text-primary shadow-sm relative";
+                  cls += " bg-surface-container-highest text-black shadow-sm relative";
                 } else {
                   cls += " bg-surface-container-lowest text-on-surface-variant/40";
                 }
@@ -388,7 +387,7 @@ export default function Home() {
                     {ch !== undefined ? (
                       ch
                     ) : isCursor ? (
-                      <span className="animate-pulse w-0.5 h-6 bg-primary" />
+                      <span className="animate-pulse w-0.5 h-6 bg-black" />
                     ) : (
                       <span className="w-2 h-2 rounded-full bg-outline-variant/50" />
                     )}
@@ -402,24 +401,15 @@ export default function Home() {
                 disabled={verifying}
                 className={`mx-auto w-fit h-12 px-10 rounded-xl font-label-lg text-label-lg shadow-sm flex items-center justify-center gap-space-xs transition-all active:scale-[0.98] ${
                   verified
-                    ? "bg-secondary text-on-secondary"
-                    : "bg-primary text-on-primary hover:bg-primary-container"
+                    ? "bg-black text-white"
+                    : "bg-black text-white hover:bg-gray-800"
                 } disabled:opacity-60`}
               >
                 <span className="material-symbols-outlined text-[20px]">
                   {verified ? "check" : "task_alt"}
                 </span>
-                <span>{verified ? "Prescription Verified!" : verifying ? "Verifying..." : "Verify & Release Prescription"}</span>
+                <span>{verified ? "Prescription Verified!" : verifying ? "Verifying..." : "Submit Code"}</span>
               </button>
-              <div className="flex items-center justify-center pt-1 px-1">
-                <button
-                  onClick={handleResend}
-                  className="font-label-md text-label-md text-primary hover:text-primary-container flex items-center gap-1 transition-colors py-1"
-                >
-                  <span className="material-symbols-outlined text-[16px]">refresh</span>
-                  <span>Resend SMS code</span>
-                </button>
-              </div>
             </div>
           </div>
 
@@ -427,17 +417,17 @@ export default function Home() {
           {(scanResult || verified) && (
             <div className="w-full max-w-md md:max-w-lg lg:max-w-2xl mx-auto bg-surface-container-low rounded-xl p-space-lg lg:p-space-xl shadow-sm">
               <div className="flex items-center justify-between mb-space-xs">
-                <div className="flex items-center gap-1.5 text-secondary">
+                <div className="flex items-center gap-1.5 text-black">
                   <span className="material-symbols-outlined text-[18px]">lock</span>
                   <span className="font-label-sm text-label-sm uppercase tracking-wide">Rx Match Identified</span>
                 </div>
-                <span className="font-label-sm text-label-sm bg-primary-fixed text-on-primary-fixed-variant px-2 py-0.5 rounded-full font-semibold">
+                <span className="font-label-sm text-label-sm bg-gray-200 text-black px-2 py-0.5 rounded-full font-semibold">
                   {verified ? "Released" : "Ready for Pickup"}
                 </span>
               </div>
               <div className="bg-surface-container-lowest rounded-xl p-space-sm mt-space-xs shadow-sm flex items-center justify-between gap-space-sm">
                 <div className="flex items-center gap-space-sm min-w-0">
-                  <div className="w-10 h-10 rounded-full bg-tertiary-fixed text-on-tertiary-fixed flex items-center justify-center font-label-lg text-label-lg flex-shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-black text-white flex items-center justify-center font-label-lg text-label-lg flex-shrink-0">
                     RX
                   </div>
                   <div className="min-w-0">
@@ -447,10 +437,19 @@ export default function Home() {
                       </span>
                     </div>
                     <div className="flex items-center gap-space-xs text-on-surface-variant font-body-sm text-body-sm truncate">
-                      <span className="font-label-md text-label-md text-tertiary">{scanResult ?? `Code: ${otp}`}</span>
+                      <span className="font-label-md text-label-md text-black">{scanResult ?? `Code: ${otp}`}</span>
                     </div>
                   </div>
                 </div>
+              </div>
+              <div className="mt-space-md flex justify-center">
+                <Link
+                  href="/patient"
+                  className="px-4 py-2 bg-black text-white font-label-md text-label-md rounded-xl hover:bg-gray-800 transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-[18px]">person</span>
+                  <span>View patient details</span>
+                </Link>
               </div>
             </div>
           )}
