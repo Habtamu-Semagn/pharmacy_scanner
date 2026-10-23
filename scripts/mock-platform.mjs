@@ -7,7 +7,8 @@
 //   RX_SIGNING_KEY     HMAC secret for QR tokens (default: a fixed dev secret)
 //
 // Extra endpoints for tests (mock only): POST /__reset, GET /__requests,
-// GET /__samples.
+// GET /__samples, and POST /__slow-next-dispense?ms=N (the next dispense is
+// recorded but answered only after N ms, to simulate a timeout after commit).
 
 import http from "node:http";
 import crypto from "node:crypto";
@@ -104,8 +105,9 @@ function samples() {
   return new Map(list.map((rx) => [rx.rx_id, rx]));
 }
 
-let db, idem, failsByIp, failsByCode, tokenLookupsByIp, requests;
+let db, idem, failsByIp, failsByCode, tokenLookupsByIp, requests, slowNextDispenseMs;
 function reset() {
+  slowNextDispenseMs = 0;
   db = samples();
   idem = new Map();
   failsByIp = new Map();
@@ -222,6 +224,10 @@ const server = http.createServer(async (req, res) => {
     return send(res, 200, { ok: true });
   }
   if (req.method === "GET" && url.pathname === "/__requests") return send(res, 200, requests);
+  if (req.method === "POST" && url.pathname === "/__slow-next-dispense") {
+    slowNextDispenseMs = Number(url.searchParams.get("ms") || 5000);
+    return send(res, 200, { ok: true });
+  }
   if (req.method === "GET" && url.pathname === "/__samples") {
     return send(
       res,
@@ -271,6 +277,14 @@ const server = http.createServer(async (req, res) => {
 
   const result = dispense(rx, body);
   idem.set(idemKey, result);
+  if (slowNextDispenseMs) {
+    const ms = slowNextDispenseMs;
+    slowNextDispenseMs = 0;
+    setTimeout(() => {
+      if (!res.destroyed) send(res, ...result);
+    }, ms);
+    return;
+  }
   return send(res, ...result);
 });
 

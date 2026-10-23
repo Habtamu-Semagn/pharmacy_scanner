@@ -1,7 +1,7 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import QRCode from "qrcode";
 import { tokenFromScan } from "../lib/rx";
-import { BASE_URL, MOCK_URL, TEST_KEY } from "./env";
+import { BASE_URL, MOCK_URL, PROD_ORIGIN, PROD_URL, TEST_KEY, TEST_TIMEOUT_MS } from "./env";
 
 interface Sample {
   key: string;
@@ -27,7 +27,10 @@ async function loadSamples(request: APIRequestContext) {
   };
 }
 
-test.beforeEach(async ({ request }) => {
+test.beforeEach(async ({ request, context }) => {
+  // The layout loads Google Fonts; keep the tests independent of the internet
+  // (a slow font server otherwise holds up the load event).
+  await context.route(/^https:\/\/fonts\.(googleapis|gstatic)\.com\//, (route) => route.abort());
   await loadSamples(request);
 });
 
@@ -288,7 +291,7 @@ test("API routes refuse cross-origin and non-JSON posts", async ({ request }) =>
   expect(get.status()).toBe(405);
 });
 
-test("the platform key never reaches the browser; client IP is passed on", async ({ page, request }) => {
+test("the platform key never reaches the browser", async ({ page, request }) => {
   const seen: string[] = [];
   page.on("response", async (res) => {
     try {
@@ -306,19 +309,113 @@ test("the platform key never reaches the browser; client IP is passed on", async
   for (const text of seen) expect(text).not.toContain(TEST_KEY);
 
   const res = await request.post("/api/lookup", {
-    headers: { ...sameOrigin, "X-Forwarded-For": "198.51.100.1, 203.0.113.9" },
+    headers: { ...sameOrigin, "X-Endod-Client-IP": "203.0.113.9" },
     data: { token: samples.open.token },
   });
   const text = await res.text();
   expect(text).not.toContain(TEST_KEY);
   expect(Object.values(res.headers()).join("\n")).not.toContain(TEST_KEY);
-  const sent = (await (await request.get(`${MOCK_URL}/__requests`)).json()) as { clientIp: string }[];
-  expect(sent[sent.length - 1].clientIp).toBe("203.0.113.9");
+  expect(await lastClientIp(request)).toBe("203.0.113.9");
 
   // Platform errors are mapped, never passed through verbatim.
   const notFound = await request.post("/api/lookup", { headers: sameOrigin, data: { code: "000000", phone: "0911223344" } });
   expect(notFound.status()).toBe(404);
   expect(Object.keys(await notFound.json())).toEqual(["error"]);
+});
+
+async function lastClientIp(request: APIRequestContext): Promise<string> {
+  const sent = (await (await request.get(`${MOCK_URL}/__requests`)).json()) as { clientIp: string }[];
+  return sent[sent.length - 1].clientIp;
+}
+
+test("client IP comes only from X-Endod-Client-IP (dev falls back to 127.0.0.1)", async ({ request }) => {
+  const lookupWith = (headers: Record<string, string>) =>
+    request.post("/api/lookup", { headers: { ...sameOrigin, ...headers }, data: { token: samples.open.token } });
+
+  // Spoofable headers are ignored entirely.
+  const spoofed = await lookupWith({
+    "CF-Connecting-IP": "198.51.100.7",
+    "X-Forwarded-For": "198.51.100.8",
+    "X-Real-IP": "198.51.100.9",
+  });
+  expect(spoofed.status()).toBe(200);
+  expect(await lastClientIp(request)).toBe("127.0.0.1");
+
+  expect((await lookupWith({ "X-Endod-Client-IP": "2001:db8::7" })).status()).toBe(200);
+  expect(await lastClientIp(request)).toBe("2001:db8::7");
+
+  expect((await lookupWith({ "X-Endod-Client-IP": "not-an-ip" })).status()).toBe(200);
+  expect(await lastClientIp(request)).toBe("127.0.0.1");
+});
+
+test("production refuses requests without a valid X-Endod-Client-IP", async ({ request }) => {
+  const before = ((await (await request.get(`${MOCK_URL}/__requests`)).json()) as unknown[]).length;
+  const lookupWith = (headers: Record<string, string>) =>
+    request.post(`${PROD_URL}/api/lookup`, {
+      headers: { Origin: PROD_ORIGIN, "Content-Type": "application/json", ...headers },
+      data: { token: samples.open.token },
+    });
+
+  const cases: Record<string, string>[] = [
+    {},
+    { "CF-Connecting-IP": "198.51.100.7", "X-Forwarded-For": "198.51.100.8", "X-Real-IP": "198.51.100.9" },
+    { "X-Endod-Client-IP": "1.2.3.999" },
+    { "X-Endod-Client-IP": "198.51.100.7, 198.51.100.8" },
+  ];
+  for (const headers of cases) {
+    const res = await lookupWith(headers);
+    expect(res.status()).toBe(503);
+    expect(await res.json()).toEqual({ error: "The pharmacy site is not configured. Contact Endod support." });
+  }
+  const dispense = await request.post(`${PROD_URL}/api/dispense`, {
+    headers: { Origin: PROD_ORIGIN, "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
+    data: { token: samples.open.token, pharmacy_name: "Kenema Pharmacy", items: [{ item_index: 0, amount: 1, complete: false }] },
+  });
+  expect(dispense.status()).toBe(503);
+  // None of those reached the platform.
+  expect(((await (await request.get(`${MOCK_URL}/__requests`)).json()) as unknown[]).length).toBe(before);
+
+  const ok = await lookupWith({ "X-Endod-Client-IP": "198.51.100.20" });
+  expect(ok.status()).toBe(200);
+  expect(await lastClientIp(request)).toBe("198.51.100.20");
+});
+
+test("a timed-out dispense retried after Back is recorded once", async ({ page, request }) => {
+  await page.goto(`/rx/${samples.open.token}`);
+  await page.locator("#pharmacy-name").fill("Kenema Pharmacy");
+  await fillDispense(page, { 0: 7 });
+
+  // The platform records it but answers too late: the site reports a timeout.
+  await request.post(`${MOCK_URL}/__slow-next-dispense?ms=${TEST_TIMEOUT_MS + 2000}`);
+  await confirmDispense(page);
+  await expect(page.getByTestId("dispense-error")).toContainText("Endod is unreachable");
+  await expect(page.getByTestId("dispense-error")).toContainText("may already have been recorded");
+
+  // Back, edit and undo, Review, Confirm with the same lines: same key.
+  await page.getByRole("button", { name: "Back" }).click();
+  await page.locator("#give-0").fill("8");
+  await page.locator("#give-0").fill("7");
+  await confirmDispense(page);
+  await expect(page.getByTestId("rx-success")).toBeVisible();
+  await expect(page.getByTestId("progress-0")).toHaveText("7 of 21 given, 14 left");
+  await expect(page.getByTestId("history").locator(":scope > li")).toHaveCount(1);
+
+  const sent = ((await (await request.get(`${MOCK_URL}/__requests`)).json()) as {
+    path: string;
+    idempotencyKey: string;
+  }[]).filter((r) => r.path === "/pharmacy/dispense");
+  expect(sent).toHaveLength(2);
+  expect(sent[1].idempotencyKey).toBe(sent[0].idempotencyKey);
+
+  // A different submission afterwards gets a fresh key.
+  await fillDispense(page, { 0: 1 });
+  await confirmDispense(page);
+  await expect(page.getByTestId("progress-0")).toHaveText("8 of 21 given, 13 left");
+  const after = ((await (await request.get(`${MOCK_URL}/__requests`)).json()) as {
+    path: string;
+    idempotencyKey: string;
+  }[]).filter((r) => r.path === "/pharmacy/dispense");
+  expect(after[2].idempotencyKey).not.toBe(sent[0].idempotencyKey);
 });
 
 test("/patient redirects to the scanner", async ({ page }) => {

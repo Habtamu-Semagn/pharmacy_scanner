@@ -1,6 +1,16 @@
 import { defineConfig } from "@playwright/test";
 
-import { BASE_URL, MOCK_PORT, MOCK_URL, SITE_PORT, TEST_KEY } from "./tests/env";
+import {
+  BASE_URL,
+  MOCK_PORT,
+  MOCK_URL,
+  PROD_ORIGIN,
+  PROD_PORT,
+  PROD_URL,
+  SITE_PORT,
+  TEST_KEY,
+  TEST_TIMEOUT_MS,
+} from "./tests/env";
 
 // Runs the standalone production build (`npm run build` first) against the mock platform.
 export default defineConfig({
@@ -32,6 +42,21 @@ export default defineConfig({
         HOSTNAME: "127.0.0.1",
         PLATFORM_API_URL: MOCK_URL,
         PHARMACY_API_KEY: TEST_KEY,
+        PLATFORM_TIMEOUT_MS: String(TEST_TIMEOUT_MS),
+      },
+      reuseExistingServer: false,
+      timeout: 120_000,
+    },
+    {
+      // Same build in production mode: only X-Endod-Client-IP is trusted.
+      command: "node .next/standalone/server.js",
+      url: `${PROD_URL}/api/health`,
+      env: {
+        PORT: String(PROD_PORT),
+        HOSTNAME: "127.0.0.1",
+        PLATFORM_API_URL: MOCK_URL,
+        PHARMACY_API_KEY: TEST_KEY,
+        SITE_ORIGIN: PROD_ORIGIN,
       },
       reuseExistingServer: false,
       timeout: 120_000,
