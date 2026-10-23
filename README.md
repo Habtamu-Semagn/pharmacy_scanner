@@ -35,7 +35,7 @@ the SMS code, or put the dev server behind HTTPS.
 | --- | --- | --- |
 | `PLATFORM_API_URL` | yes in production | Base URL of the platform's internal API, e.g. `http://endod-platform-api:8000` (the default). |
 | `PHARMACY_API_KEY` | yes | Sent as `X-Pharmacy-Key`. Server-side only: it is read at request time, never bundled, and never sent to the browser. |
-| `SITE_ORIGIN` | no | Comma-separated origins allowed to POST to the API routes. Defaults to the request's own origin (`X-Forwarded-Proto` + `Host`). Set it to `https://pharmacy.endod-health.com` in production. |
+| `SITE_ORIGIN` | yes in production | `https://pharmacy.endod-health.com`. Comma-separated origins allowed to POST to the API routes (defaults to the request's own origin in development). An `https://` value also switches on production mode, which requires `X-Endod-Client-IP` (see [Client IP](#client-ip)). |
 | `PORT`, `HOSTNAME` | no | Listen address of the standalone server (Docker sets `3000` and `0.0.0.0`). |
 
 Do not prefix any of these with `NEXT_PUBLIC_`.
@@ -73,6 +73,23 @@ It must be on the same Docker network as the platform's `internal-api`
 (alias `endod-platform-api`). Behind nginx at `pharmacy.endod-health.com`:
 
 ```nginx
+# Cloudflare ranges: keep in sync with https://www.cloudflare.com/ips/
+geo $remote_addr $from_cloudflare {
+  default 0;
+  173.245.48.0/20 1;  103.21.244.0/22 1; 103.22.200.0/22 1; 103.31.4.0/22 1;
+  141.101.64.0/18 1;  108.162.192.0/18 1; 190.93.240.0/20 1; 188.114.96.0/20 1;
+  197.234.240.0/22 1; 198.41.128.0/17 1; 162.158.0.0/15 1;  104.16.0.0/13 1;
+  104.24.0.0/14 1;    172.64.0.0/13 1;   131.0.72.0/22 1;
+  2400:cb00::/32 1; 2606:4700::/32 1; 2803:f800::/32 1; 2405:b500::/32 1;
+  2405:8100::/32 1; 2a06:98c0::/29 1; 2c0f:f248::/32 1;
+}
+# Cloudflare's header only when the connection really comes from Cloudflare;
+# otherwise the TCP peer address, which a client cannot forge.
+map $from_cloudflare $endod_client_ip {
+  1       $http_cf_connecting_ip;
+  default $remote_addr;
+}
+
 server {
   listen 443 ssl http2;
   server_name pharmacy.endod-health.com;
@@ -86,10 +103,8 @@ server {
     proxy_http_version 1.1;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-Proto $scheme;
-    # Overwrite, do not append: the site passes this IP to the platform for rate limits.
-    proxy_set_header X-Forwarded-For $remote_addr;
-    # Only keep this if Cloudflare is in front; otherwise clients could spoof it.
-    proxy_set_header CF-Connecting-IP "";
+    # Always set (overwrites anything the client sent). The site trusts nothing else.
+    proxy_set_header X-Endod-Client-IP $endod_client_ip;
   }
 }
 
@@ -100,9 +115,20 @@ server {
 }
 ```
 
-The client IP sent to the platform as `X-Client-IP` is taken from
-`CF-Connecting-IP`, then the right-most `X-Forwarded-For` entry, then
-`X-Real-IP`, falling back to `0.0.0.0`.
+### Client IP
+
+The platform rate-limits per pharmacist IP, which the site sends as
+`X-Client-IP`. **The site reads that IP only from `X-Endod-Client-IP`, and nginx
+must set it** as above, overwriting whatever the client sent. The site ignores
+`CF-Connecting-IP`, `X-Forwarded-For` and `X-Real-IP` completely, because the
+origin can be reached without going through Cloudflare and those headers can be
+forged.
+
+In production (`SITE_ORIGIN` starts with `https://`), a request whose
+`X-Endod-Client-IP` is missing or not a valid IPv4/IPv6 address is refused with
+503 "The pharmacy site is not configured", and a warning is logged. In
+development and tests the site falls back to `127.0.0.1`. So `SITE_ORIGIN` must
+be set in production; without it the site behaves as in development.
 
 ## Security notes
 
@@ -111,8 +137,10 @@ The client IP sent to the platform as `X-Client-IP` is taken from
   paths, and return only the documented response fields. Platform errors are
   mapped to fixed messages (404, 409, 429 and so on); platform calls time out
   after 10 s with "Endod is unreachable".
-- Each dispense submission gets a fresh `Idempotency-Key` (UUID). Retries of the
-  same submission after a network or server error reuse it, so a dispense is
-  never recorded twice.
+- Each dispense submission gets an `Idempotency-Key` (UUID). After a timeout,
+  network or server error the outcome is unknown, so the key is kept: any later
+  submission with the same lines and pharmacy name reuses it (also after Back),
+  and a dispense is never recorded twice. A new key is made only after a definite
+  success or refusal, or when the lines change.
 - Prescription text is rendered as text only. `Referrer-Policy: no-referrer`
   keeps `/rx/<token>` URLs out of `Referer` headers.

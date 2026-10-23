@@ -1,6 +1,7 @@
 // Server-only: talks to the Endod platform API (docs/endod-api.md §2).
 // Never import this from a client component; it reads PHARMACY_API_KEY.
 
+import { isIP } from "node:net";
 import type { NextRequest } from "next/server";
 import {
   CODE_RE,
@@ -11,7 +12,8 @@ import {
   type RxStatus,
 } from "@/lib/rx";
 
-const TIMEOUT_MS = 10_000;
+// 10 s; PLATFORM_TIMEOUT_MS only exists so the tests need not wait that long.
+const TIMEOUT_MS = Math.min(Number(process.env.PLATFORM_TIMEOUT_MS) || 10_000, 10_000);
 export const MAX_BODY_BYTES = 8 * 1024;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -91,21 +93,24 @@ export async function readGuardedJson(req: NextRequest): Promise<Json | Response
   return parsed as Json;
 }
 
-/** The pharmacist's IP for the platform's rate limits. */
-export function clientIp(req: NextRequest): string {
-  const valid = (v: string | null | undefined) =>
-    v && v.length <= 45 && /^[0-9a-fA-F:.]+$/.test(v) ? v : null;
-  const cf = valid(req.headers.get("cf-connecting-ip")?.trim());
-  if (cf) return cf;
-  // The right-most entry is the one our own proxy (nginx) added; entries to
-  // its left are whatever the client claimed.
-  const xff = (req.headers.get("x-forwarded-for") ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const fromXff = valid(xff[xff.length - 1]);
-  if (fromXff) return fromXff;
-  return valid(req.headers.get("x-real-ip")?.trim()) ?? "0.0.0.0";
+/** Production is an https SITE_ORIGIN; anything else is dev or tests. */
+function isProduction(): boolean {
+  return (process.env.SITE_ORIGIN ?? "").trim().startsWith("https://");
+}
+
+/**
+ * The pharmacist's IP for the platform's rate limits, or null when it cannot
+ * be trusted. It is read ONLY from X-Endod-Client-IP, which our nginx sets
+ * itself (overwriting anything the client sent). CF-Connecting-IP,
+ * X-Forwarded-For and X-Real-IP are ignored: the origin can be reached
+ * directly, so a client could forge them.
+ */
+export function clientIp(req: NextRequest): string | null {
+  const raw = req.headers.get("x-endod-client-ip")?.trim() ?? "";
+  if (raw && raw.length <= 45 && isIP(raw)) return raw;
+  if (isProduction()) return null;
+  // Dev and tests: route handlers do not expose the socket address.
+  return "127.0.0.1";
 }
 
 export function idempotencyKey(req: NextRequest): string | null {
@@ -201,11 +206,19 @@ export async function callPlatform(
     return fail(500, "The pharmacy site is not configured. Contact Endod support.");
   }
 
+  const ip = clientIp(req);
+  if (!ip) {
+    // nginx must set X-Endod-Client-IP; without it every pharmacist would
+    // share one rate-limit bucket (or could pick their own).
+    console.warn(`refusing ${path}: X-Endod-Client-IP missing or invalid (check the nginx config)`);
+    return fail(503, "The pharmacy site is not configured. Contact Endod support.");
+  }
+
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Accept: "application/json",
     "X-Pharmacy-Key": key,
-    "X-Client-IP": clientIp(req),
+    "X-Client-IP": ip,
   };
   if (idemKey) headers["Idempotency-Key"] = idemKey;
 
