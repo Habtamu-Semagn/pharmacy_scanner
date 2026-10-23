@@ -1,18 +1,41 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { BrowserQRCodeReader } from "@zxing/browser";
 import type { IScannerControls } from "@zxing/browser";
 import type { Result } from "@zxing/library";
+import { CODE_RE, PHONE_RE, normalisePhone, tokenFromScan } from "@/lib/rx";
+import { lookup, saveCodeLookup } from "@/lib/client";
 
-type ScanStatus = "idle" | "scanning" | "success" | "error";
+type ScanStatus = "idle" | "starting" | "scanning" | "found" | "rejected" | "error";
+
+const NOT_ENDOD = "Not an Endod prescription";
+
+function cameraErrorMessage(e: unknown): string {
+  const name = e instanceof Error ? e.name : "";
+  if (name === "NotAllowedError" || name === "SecurityError") {
+    return "Camera permission was refused. Allow the camera in the browser settings, or use Upload QR or the SMS code.";
+  }
+  if (name === "NotFoundError" || name === "OverconstrainedError") {
+    return "No camera found on this device. Use Upload QR or the SMS code.";
+  }
+  if (name === "NotReadableError") {
+    return "The camera is in use by another app. Close it and tap Rescan.";
+  }
+  return "The camera could not be started. Use Upload QR or the SMS code.";
+}
 
 export default function Home() {
+  const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   const controlsRef = useRef<IScannerControls | null>(null);
   const readerRef = useRef<BrowserQRCodeReader | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Bumped on every stop; a camera start that resolves after a stop is discarded.
+  const sessionRef = useRef(0);
+  const pausedByVisibilityRef = useRef(false);
 
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [deviceId, setDeviceId] = useState<string | undefined>(undefined);
@@ -20,105 +43,134 @@ export default function Home() {
   const [torchSupported, setTorchSupported] = useState(false);
   const [status, setStatus] = useState<ScanStatus>("idle");
   const [message, setMessage] = useState<string>("Ready to scan");
-  const [scanResult, setScanResult] = useState<string | null>(null);
-  const [otp, setOtp] = useState("");
-  const [verifying, setVerifying] = useState(false);
-  const [verified, setVerified] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [otp, setOtp] = useState("");
+  const [phone, setPhone] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [codeError, setCodeError] = useState<string | null>(null);
+
   const stopScanner = useCallback(() => {
+    sessionRef.current += 1;
     try {
       controlsRef.current?.stop();
     } catch {
       /* ignore */
     }
     controlsRef.current = null;
-    if (videoRef.current) {
-      const src = videoRef.current.srcObject as MediaStream | null;
+    const video = videoRef.current;
+    if (video) {
+      const src = video.srcObject as MediaStream | null;
       src?.getTracks().forEach((t) => t.stop());
-      videoRef.current.srcObject = null;
+      video.srcObject = null;
     }
+    setTorchOn(false);
+    setTorchSupported(false);
   }, []);
+
+  const handleScanText = useCallback(
+    (text: string) => {
+      const token = tokenFromScan(text, window.location.origin);
+      if (!token) {
+        setStatus("rejected");
+        setMessage(NOT_ENDOD);
+        setError(`${NOT_ENDOD}. Only the QR code from the patient's Endod app can be used here.`);
+        return;
+      }
+      setStatus("found");
+      setMessage("Endod prescription found");
+      setError(null);
+      router.push(`/rx/${encodeURIComponent(token)}`);
+    },
+    [router],
+  );
 
   const startScanner = useCallback(
     async (targetDeviceId?: string) => {
-      setError(null);
-      setStatus("scanning");
-      setMessage("Starting camera...");
       stopScanner();
-      try {
-        if (!readerRef.current) readerRef.current = new BrowserQRCodeReader();
-        const reader = readerRef.current;
-        const controls = await reader.decodeFromVideoDevice(
-          targetDeviceId,
-          videoRef.current as HTMLVideoElement,
-          (result: Result | undefined, _err: unknown) => {
-             void _err;
-            if (result) {
-              const text = result.getText();
-              setScanResult(text);
-              setStatus("success");
-              setMessage("QR code detected");
-              stopScanner();
-            }
-            // NotFoundException is expected while scanning; ignore silently
-          }
-        );
-        controlsRef.current = controls;
-        setMessage("Scanning for QR code...");
-        // torch support
-        const stream = videoRef.current?.srcObject as MediaStream | null;
-        const track = stream?.getVideoTracks()?.[0];
-        setTorchSupported(
-          !!track && (track.getCapabilities?.() as { torch?: boolean } | undefined)?.torch === true
-        );
-      } catch (e) {
+      const session = sessionRef.current;
+      setError(null);
+      setStatus("starting");
+      setMessage("Starting camera...");
+      const video = videoRef.current;
+      if (!video) return;
+      if (!navigator.mediaDevices?.getUserMedia) {
         setStatus("error");
-        setError(e instanceof Error ? e.message : "Camera access failed");
         setMessage("Camera unavailable");
+        setError("This browser cannot use the camera here (it needs HTTPS). Use Upload QR or the SMS code.");
+        return;
+      }
+      try {
+        readerRef.current ??= new BrowserQRCodeReader();
+        const onResult = (result: Result | undefined) => {
+          // NotFoundException is reported on every empty frame; ignore it.
+          if (!result || session !== sessionRef.current) return;
+          stopScanner();
+          handleScanText(result.getText());
+        };
+        const controls = targetDeviceId
+          ? await readerRef.current.decodeFromVideoDevice(targetDeviceId, video, onResult)
+          : await readerRef.current.decodeFromConstraints(
+              { video: { facingMode: { ideal: "environment" } } },
+              video,
+              onResult,
+            );
+        if (session !== sessionRef.current) {
+          // Stopped (navigation, unmount, new start) while the camera was opening.
+          controls.stop();
+          return;
+        }
+        controlsRef.current = controls;
+        setStatus("scanning");
+        setMessage("Scanning for QR code...");
+
+        const track = (video.srcObject as MediaStream | null)?.getVideoTracks()?.[0];
+        setTorchSupported(
+          !!track && (track.getCapabilities?.() as { torch?: boolean } | undefined)?.torch === true,
+        );
+        setDeviceId(track?.getSettings().deviceId ?? targetDeviceId);
+        const all = await navigator.mediaDevices.enumerateDevices();
+        if (session === sessionRef.current) setDevices(all.filter((d) => d.kind === "videoinput"));
+      } catch (e) {
+        if (session !== sessionRef.current) return;
+        stopScanner();
+        setStatus("error");
+        setMessage("Camera unavailable");
+        setError(cameraErrorMessage(e));
       }
     },
-    [stopScanner]
+    [stopScanner, handleScanText],
   );
 
-  // enumerate devices
+  // Start on mount; stop on unmount and when Next hides this route on navigation.
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        // request permission first to get labels
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        stream.getTracks().forEach((t) => t.stop());
-        const devs = await navigator.mediaDevices.enumerateDevices();
-        if (cancelled) return;
-        const videos = devs.filter((d) => d.kind === "videoinput");
-        setDevices(videos);
-        const back = videos.find((d) => /back|rear|environment/i.test(d.label));
-        const chosen = back?.deviceId ?? videos[0]?.deviceId;
-        setDeviceId(chosen);
-        if (chosen) {
-          setTimeout(() => startScanner(chosen), 0);
+    const timer = setTimeout(() => void startScanner(), 0);
+    const onVisibility = () => {
+      if (document.hidden) {
+        if (controlsRef.current) {
+          pausedByVisibilityRef.current = true;
+          stopScanner();
+          setStatus("idle");
+          setMessage("Camera paused");
         }
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Permission denied");
+      } else if (pausedByVisibilityRef.current) {
+        pausedByVisibilityRef.current = false;
+        void startScanner();
       }
-    })();
-    return () => {
-      cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    return () => stopScanner();
-  }, [stopScanner]);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+      pausedByVisibilityRef.current = false;
+      stopScanner();
+    };
+  }, [startScanner, stopScanner]);
 
   const handleSwitchCamera = async () => {
     if (devices.length < 2) return;
     const idx = devices.findIndex((d) => d.deviceId === deviceId);
     const next = devices[(idx + 1) % devices.length];
-    setDeviceId(next.deviceId);
-    setTorchOn(false);
     await startScanner(next.deviceId);
   };
 
@@ -132,92 +184,107 @@ export default function Home() {
         await track?.applyConstraints({ advanced: [{ torch: next } as MediaTrackConstraintSet] });
       }
       setTorchOn(next);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Torch not supported");
+    } catch {
+      setError("The torch could not be switched on this camera.");
     }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    stopScanner();
     setError(null);
-    setStatus("scanning");
+    setStatus("starting");
     setMessage("Decoding image...");
+    const url = URL.createObjectURL(file);
     try {
-      if (!readerRef.current) readerRef.current = new BrowserQRCodeReader();
-      const url = URL.createObjectURL(file);
-      const img = new Image();
+      readerRef.current ??= new BrowserQRCodeReader();
+      const img = new window.Image();
       img.src = url;
       await new Promise<void>((res, rej) => {
         img.onload = () => res();
         img.onerror = () => rej(new Error("Image load failed"));
       });
       const result = await readerRef.current.decodeFromImageElement(img);
-      setScanResult(result.getText());
-      setStatus("success");
-      setMessage("QR code detected");
-      URL.revokeObjectURL(url);
-    } catch (err) {
+      handleScanText(result.getText());
+    } catch {
       setStatus("error");
-      setError(err instanceof Error ? err.message : "No QR code found");
-      setMessage("Decode failed");
+      setMessage("No QR code found");
+      setError("No QR code was found in that image. Try a sharper photo.");
     } finally {
+      URL.revokeObjectURL(url);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
   const handleOtpChange = (val: string) => {
-    const cleaned = val.replace(/\D/g, "").slice(0, 6);
-    setOtp(cleaned);
-    if (verified) setVerified(false);
+    setOtp(val.replace(/\D/g, "").slice(0, 6));
+    setCodeError(null);
   };
 
-  const handleVerify = async () => {
-    if (otp.length < 6 && !scanResult) {
-      setError("Enter 6-digit code or scan a QR code");
+  const handleVerify = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (verifying) return;
+    const ph = normalisePhone(phone);
+    if (!CODE_RE.test(otp)) {
+      setCodeError("Enter the 6-digit code from the patient's SMS.");
+      return;
+    }
+    if (!PHONE_RE.test(ph)) {
+      setCodeError("Enter the patient's phone number, for example 0911 223344.");
       return;
     }
     setVerifying(true);
-    setError(null);
-    // simulate verification
-    await new Promise((r) => setTimeout(r, 800));
+    setCodeError(null);
+    const ref = { code: otp, phone: ph };
+    const result = await lookup(ref);
+    if (!result.ok) {
+      setVerifying(false);
+      setCodeError(result.error);
+      return;
+    }
+    saveCodeLookup(ref, result.prescription);
+    stopScanner();
+    // Keep the code and phone out of this (preserved) page once used.
+    setOtp("");
+    setPhone("");
     setVerifying(false);
-    setVerified(true);
-    setMessage("Prescription verified");
-  };
-
-  const handleResend = () => {
-    setMessage("New SMS code sent");
-    setTimeout(() => setMessage("Ready to verify"), 3000);
+    router.push("/rx/code");
   };
 
   const resetScan = () => {
-    setScanResult(null);
-    setVerified(false);
-    setStatus("idle");
-    setOtp("");
-    if (deviceId) startScanner(deviceId);
+    setError(null);
+    void startScanner(deviceId);
   };
 
   const otpChars = otp.split("");
+  const live = status === "scanning" || status === "starting";
 
   return (
     <div className="flex flex-col min-h-screen bg-surface text-on-surface">
       <header className="fixed top-0 w-full z-50 bg-surface/85 backdrop-blur-xl pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
         <div className="h-16 px-space-lg flex items-center justify-between gap-space-sm">
           <div className="flex items-center gap-space-sm min-w-0 flex-1">
-            <img src="/endod_logo.jpeg" alt="Endod Health" className="h-12 w-auto object-contain flex-shrink-0 bg-transparent mix-blend-multiply" />
+            <Image
+              src="/endod_logo.jpeg"
+              alt="Endod Health"
+              width={48}
+              height={48}
+              priority
+              unoptimized
+              className="h-12 w-auto object-contain flex-shrink-0 bg-transparent mix-blend-multiply"
+            />
             <div className="flex flex-col min-w-0">
               <span className="font-headline-sm text-headline-sm text-on-surface truncate">Endod Health</span>
               <div className="flex items-center gap-1">
                 <span className="relative flex h-2 w-2">
-                  {status === "scanning" && (
+                  {live && (
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-black opacity-75"></span>
                   )}
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-black"></span>
                 </span>
                 <span className="font-label-sm text-label-sm text-black truncate">
-                  {status === "scanning" ? "Scanning" : status === "success" ? "Scan locked" : "Idle"}
+                  {live ? "Scanning" : status === "found" ? "Scan locked" : "Idle"}
                 </span>
               </div>
             </div>
@@ -237,10 +304,10 @@ export default function Home() {
             <div className="w-full flex items-center justify-between mb-space-sm px-1">
               <div className="flex items-center gap-1.5 text-black">
                 <span className="material-symbols-outlined text-[18px]">document_scanner</span>
-                <span className="font-label-lg text-label-lg">Optical Rx Sensor</span>
+                <span className="font-label-lg text-label-lg">Scan prescription QR</span>
               </div>
               <span className="bg-surface-container text-on-surface-variant font-label-sm text-label-sm px-2.5 py-1 rounded-full">
-                {status === "scanning" ? "Live" : status === "success" ? "Locked" : "Idle"}
+                {live ? "Live" : status === "found" ? "Locked" : "Idle"}
               </span>
             </div>
 
@@ -261,29 +328,35 @@ export default function Home() {
                   <div className="absolute left-2 right-2 h-0.5 bg-gradient-to-r from-transparent via-black to-transparent shadow-[0_0_12px_rgba(0,0,0,0.4)] animate-pulse" />
                 )}
               </div>
-              {status !== "scanning" && (
+              {!live && (
                 <div className="absolute inset-0 flex items-center justify-center bg-inverse-surface/60">
-                  <span className="font-label-md text-label-md text-inverse-on-surface">
-                    {status === "success" ? "Scan complete" : status === "error" ? "Camera error" : "Idle"}
+                  <span className="font-label-md text-label-md text-inverse-on-surface px-4 text-center">
+                    {status === "found"
+                      ? "Opening prescription..."
+                      : status === "rejected"
+                        ? NOT_ENDOD
+                        : status === "error"
+                          ? message
+                          : "Camera off"}
                   </span>
                 </div>
               )}
               <div className="absolute top-3 right-3 flex items-center gap-2">
                 {torchSupported && (
                   <button
+                    type="button"
                     aria-label="Toggle Torch"
                     onClick={handleTorch}
                     className={`w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-95 shadow-sm ${
-                      torchOn
-                        ? "bg-black text-white hover:bg-gray-800"
-                        : "bg-black/75 text-white hover:bg-black"
+                      torchOn ? "bg-black text-white hover:bg-gray-800" : "bg-black/75 text-white hover:bg-black"
                     }`}
                   >
                     <span className="material-symbols-outlined text-[18px]">{torchOn ? "flash_on" : "flash_off"}</span>
                   </button>
                 )}
-                {devices.length > 1 && (
+                {devices.length > 1 && live && (
                   <button
+                    type="button"
                     aria-label="Switch Camera"
                     onClick={handleSwitchCamera}
                     className="w-9 h-9 rounded-full bg-black/75 text-white flex items-center justify-center hover:bg-black transition-all active:scale-95 shadow-sm"
@@ -295,11 +368,11 @@ export default function Home() {
             </div>
 
             <div className="w-full mt-space-md flex flex-col sm:flex-row items-center justify-between gap-space-sm">
-              <div className="flex items-center gap-1.5 text-black">
+              <div className="flex items-center gap-1.5 text-black" role="status" aria-live="polite">
                 <span className="material-symbols-outlined text-[18px]">
-                  {status === "success" ? "check_circle" : status === "error" ? "error" : "center_focus_strong"}
+                  {status === "found" ? "check_circle" : status === "error" || status === "rejected" ? "error" : "center_focus_strong"}
                 </span>
-                <span className="font-label-sm text-label-sm">{message}</span>
+                <span className="font-label-sm text-label-sm" data-testid="scan-message">{message}</span>
               </div>
               <div className="flex items-center gap-2">
                 <input
@@ -307,17 +380,20 @@ export default function Home() {
                   type="file"
                   accept="image/*"
                   className="hidden"
+                  data-testid="qr-upload"
                   onChange={handleFileUpload}
                 />
                 <button
+                  type="button"
                   onClick={() => fileInputRef.current?.click()}
                   className="px-4 py-2 bg-black text-white font-label-md text-label-md rounded-xl hover:bg-gray-800 transition-colors flex items-center justify-center gap-1.5"
                 >
                   <span className="material-symbols-outlined text-[18px]">photo_library</span>
                   <span>Upload QR</span>
                 </button>
-                {status !== "scanning" && (
+                {!live && (
                   <button
+                    type="button"
                     onClick={resetScan}
                     className="px-4 py-2 bg-black text-white font-label-md text-label-md rounded-xl hover:bg-gray-800 transition-colors flex items-center justify-center gap-1.5"
                   >
@@ -329,7 +405,11 @@ export default function Home() {
             </div>
 
             {error && (
-              <div className="w-full max-w-md md:max-w-lg lg:max-w-2xl mx-auto mt-space-sm text-error font-body-sm text-body-sm bg-error-container/40 rounded-lg px-3 py-2">
+              <div
+                role="alert"
+                data-testid="scan-error"
+                className="w-full max-w-md md:max-w-lg lg:max-w-2xl mx-auto mt-space-sm text-error font-body-sm text-body-sm bg-error-container/40 rounded-lg px-3 py-2"
+              >
                 {error}
               </div>
             )}
@@ -344,32 +424,39 @@ export default function Home() {
             <div className="h-[1px] bg-outline-variant/40 flex-1"></div>
           </div>
 
-          <div className="w-full max-w-md md:max-w-lg lg:max-w-2xl mx-auto bg-surface-container-lowest rounded-xl p-space-lg lg:p-space-xl shadow-sm">
+          <form
+            onSubmit={handleVerify}
+            noValidate
+            className="w-full max-w-md md:max-w-lg lg:max-w-2xl mx-auto bg-surface-container-lowest rounded-xl p-space-lg lg:p-space-xl shadow-sm"
+          >
             <div className="flex items-start justify-between gap-2 mb-space-sm">
               <div>
                 <label className="font-headline-sm text-headline-sm text-on-surface block" htmlFor="otp-input-field">
-                  Patient Verification Code
+                  Prescription Code
                 </label>
                 <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
-                  Sent to patient phone on file
+                  The 6-digit code is in the patient&apos;s SMS from Endod. It cannot be resent from
+                  here; the patient can also find it in the Endod app.
                 </p>
               </div>
               <span className="material-symbols-outlined text-black text-[24px]">sms</span>
             </div>
             <input
-              aria-label="Enter 6 digit authorization code"
+              aria-label="Enter 6 digit prescription code"
               id="otp-input-field"
+              name="code"
               type="tel"
               inputMode="numeric"
+              autoComplete="off"
               maxLength={6}
               value={otp}
               onChange={(e) => handleOtpChange(e.target.value)}
               className="sr-only"
-              autoFocus
             />
             <div
               className="grid grid-cols-6 gap-2 sm:gap-space-sm my-space-md max-w-sm mx-auto cursor-pointer"
               onClick={() => document.getElementById("otp-input-field")?.focus()}
+              aria-hidden="true"
             >
               {Array.from({ length: 6 }).map((_, i) => {
                 const ch = otpChars[i];
@@ -395,64 +482,47 @@ export default function Home() {
                 );
               })}
             </div>
-            <div className="space-y-space-sm pt-2">
-              <button
-                onClick={handleVerify}
-                disabled={verifying}
-                className={`mx-auto w-fit h-12 px-10 rounded-xl font-label-lg text-label-lg shadow-sm flex items-center justify-center gap-space-xs transition-all active:scale-[0.98] ${
-                  verified
-                    ? "bg-black text-white"
-                    : "bg-black text-white hover:bg-gray-800"
-                } disabled:opacity-60`}
+
+            <label className="block max-w-sm mx-auto" htmlFor="phone-input-field">
+              <span className="font-label-md text-label-md text-on-surface-variant">Patient&apos;s phone number</span>
+              <input
+                id="phone-input-field"
+                name="phone"
+                type="tel"
+                inputMode="tel"
+                autoComplete="off"
+                placeholder="09.. .. .. .."
+                maxLength={20}
+                value={phone}
+                onChange={(e) => {
+                  setPhone(e.target.value);
+                  setCodeError(null);
+                }}
+                className="mt-1 w-full h-12 rounded-xl bg-surface-container-low px-4 font-body-lg text-body-lg text-on-surface placeholder:text-on-surface-variant/50 outline-none focus:ring-2 focus:ring-black"
+              />
+            </label>
+
+            {codeError && (
+              <div
+                role="alert"
+                data-testid="code-error"
+                className="max-w-sm mx-auto mt-space-sm text-error font-body-sm text-body-sm bg-error-container/40 rounded-lg px-3 py-2"
               >
-                <span className="material-symbols-outlined text-[20px]">
-                  {verified ? "check" : "task_alt"}
-                </span>
-                <span>{verified ? "Prescription Verified!" : verifying ? "Verifying..." : "Submit Code"}</span>
+                {codeError}
+              </div>
+            )}
+
+            <div className="space-y-space-sm pt-space-md">
+              <button
+                type="submit"
+                disabled={verifying}
+                className="mx-auto w-fit h-12 px-10 rounded-xl font-label-lg text-label-lg shadow-sm flex items-center justify-center gap-space-xs transition-all active:scale-[0.98] bg-black text-white hover:bg-gray-800 disabled:opacity-60"
+              >
+                <span className="material-symbols-outlined text-[20px]">task_alt</span>
+                <span>{verifying ? "Looking up..." : "Find Prescription"}</span>
               </button>
             </div>
-          </div>
-
-          {/* Result card */}
-          {(scanResult || verified) && (
-            <div className="w-full max-w-md md:max-w-lg lg:max-w-2xl mx-auto bg-surface-container-low rounded-xl p-space-lg lg:p-space-xl shadow-sm">
-              <div className="flex items-center justify-between mb-space-xs">
-                <div className="flex items-center gap-1.5 text-black">
-                  <span className="material-symbols-outlined text-[18px]">lock</span>
-                  <span className="font-label-sm text-label-sm uppercase tracking-wide">Rx Match Identified</span>
-                </div>
-                <span className="font-label-sm text-label-sm bg-gray-200 text-black px-2 py-0.5 rounded-full font-semibold">
-                  {verified ? "Released" : "Ready for Pickup"}
-                </span>
-              </div>
-              <div className="bg-surface-container-lowest rounded-xl p-space-sm mt-space-xs shadow-sm flex items-center justify-between gap-space-sm">
-                <div className="flex items-center gap-space-sm min-w-0">
-                  <div className="w-10 h-10 rounded-full bg-black text-white flex items-center justify-center font-label-lg text-label-lg flex-shrink-0">
-                    RX
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-space-xs truncate">
-                      <span className="font-label-lg text-label-lg text-on-surface truncate">
-                        {scanResult ? "Scanned Code" : "SMS Verified"}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-space-xs text-on-surface-variant font-body-sm text-body-sm truncate">
-                      <span className="font-label-md text-label-md text-black">{scanResult ?? `Code: ${otp}`}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-space-md flex justify-center">
-                <Link
-                  href="/patient"
-                  className="px-4 py-2 bg-black text-white font-label-md text-label-md rounded-xl hover:bg-gray-800 transition-colors flex items-center justify-center gap-1.5"
-                >
-                  <span className="material-symbols-outlined text-[18px]">person</span>
-                  <span>View patient details</span>
-                </Link>
-              </div>
-            </div>
-          )}
+          </form>
         </div>
       </main>
     </div>
