@@ -91,9 +91,13 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
   const [canRetry, setCanRetry] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // One key per submission: kept across retries of that same submission,
-  // dropped when the form changes or the submission finishes.
-  const idemKeyRef = useRef<string | null>(null);
+  // The Idempotency-Key of a submission whose outcome is not known yet (in
+  // flight, or it failed with a timeout/network/server error, so Endod may
+  // already have recorded it). Any later submission of the same lines and
+  // pharmacy name reuses it, even after Back or editing and undoing, so the
+  // platform cannot dispense twice. It is dropped only after a definite answer
+  // (success or refusal); a submission with different lines gets a new key.
+  const pendingRef = useRef<{ key: string; fingerprint: string } | null>(null);
   const sendingRef = useRef(false);
 
   useEffect(() => {
@@ -138,8 +142,8 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
     };
   }, [token]);
 
+  // Clears messages only; the pending key is matched by fingerprint in submit().
   const resetSubmission = () => {
-    idemKeyRef.current = null;
     setCanRetry(false);
     setFormError(null);
     setSuccess(null);
@@ -200,18 +204,21 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
     sendingRef.current = true;
     setSending(true);
     setFormError(null);
-    idemKeyRef.current ??= newIdempotencyKey();
     const body: DispenseRequest = {
       pharmacy_name: pharmacyName.trim(),
       pharmacist_name: pharmacistName.trim() || null,
       items: lines.map((l) => ({ item_index: l.item.item_index, amount: l.amount, complete: l.complete })),
     };
-    const result = await dispense(ref, body, idemKeyRef.current);
+    const fingerprint = JSON.stringify([ref, body.pharmacy_name, body.items]);
+    if (pendingRef.current?.fingerprint !== fingerprint) {
+      pendingRef.current = { key: newIdempotencyKey(), fingerprint };
+    }
+    const result = await dispense(ref, body, pendingRef.current.key);
     sendingRef.current = false;
     setSending(false);
 
     if (result.ok) {
-      idemKeyRef.current = null;
+      pendingRef.current = null;
       setCanRetry(false);
       rememberPharmacy(body.pharmacy_name);
       setRx(result.prescription);
@@ -228,13 +235,16 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
       return;
     }
 
-    setFormError(result.error);
     if (result.retryable) {
-      // Endod may or may not have recorded it: retry with the same key.
+      // Endod may or may not have recorded it: keep the key for a retry.
+      setFormError(
+        `${result.error} It may already have been recorded: try again without changing anything, or reload the prescription before changing the amounts.`,
+      );
       setCanRetry(true);
       return;
     }
-    idemKeyRef.current = null;
+    setFormError(result.error);
+    pendingRef.current = null;
     setCanRetry(false);
     setStep("edit");
     if (result.status === 409) await refresh();
