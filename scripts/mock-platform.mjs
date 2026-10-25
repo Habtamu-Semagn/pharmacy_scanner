@@ -258,6 +258,8 @@ const server = http.createServer(async (req, res) => {
     path: url.pathname,
     clientIp: ip,
     idempotencyKey: idemKey ?? null,
+    // The site must never pass nginx's edge key on.
+    edgeKeyForwarded: req.headers["x-endod-edge-key"] !== undefined,
     body,
   });
   if (requests.length > 200) requests.shift();
