@@ -2,6 +2,7 @@ import { defineConfig } from "@playwright/test";
 
 import {
   BASE_URL,
+  EDGE_SECRET,
   MOCK_PORT,
   MOCK_URL,
   PROD_ORIGIN,
@@ -48,15 +49,19 @@ export default defineConfig({
       timeout: 120_000,
     },
     {
-      // Same build in production mode: only X-Endod-Client-IP is trusted.
+      // Same build in production mode: only X-Endod-Client-IP is trusted, and
+      // only with nginx's edge key. All interfaces, as in Docker (the edge-key
+      // tests also call it from this machine's LAN address); the readiness
+      // probe is the localhost healthcheck, which needs no key.
       command: "node .next/standalone/server.js",
       url: `${PROD_URL}/api/health`,
       env: {
         PORT: String(PROD_PORT),
-        HOSTNAME: "127.0.0.1",
+        HOSTNAME: "0.0.0.0",
         PLATFORM_API_URL: MOCK_URL,
         PHARMACY_API_KEY: TEST_KEY,
         SITE_ORIGIN: PROD_ORIGIN,
+        EDGE_SHARED_SECRET: EDGE_SECRET,
       },
       reuseExistingServer: false,
       timeout: 120_000,

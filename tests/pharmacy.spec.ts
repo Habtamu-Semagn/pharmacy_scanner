@@ -1,7 +1,7 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import QRCode from "qrcode";
 import { tokenFromScan } from "../lib/rx";
-import { BASE_URL, MOCK_URL, PROD_ORIGIN, PROD_URL, TEST_KEY, TEST_TIMEOUT_MS } from "./env";
+import { BASE_URL, EDGE_SECRET, MOCK_URL, PROD_ORIGIN, PROD_URL, TEST_KEY, TEST_TIMEOUT_MS } from "./env";
 
 interface Sample {
   key: string;
@@ -352,7 +352,7 @@ test("production refuses requests without a valid X-Endod-Client-IP", async ({ r
   const before = ((await (await request.get(`${MOCK_URL}/__requests`)).json()) as unknown[]).length;
   const lookupWith = (headers: Record<string, string>) =>
     request.post(`${PROD_URL}/api/lookup`, {
-      headers: { Origin: PROD_ORIGIN, "Content-Type": "application/json", ...headers },
+      headers: { Origin: PROD_ORIGIN, "Content-Type": "application/json", "X-Endod-Edge-Key": EDGE_SECRET, ...headers },
       data: { token: samples.open.token },
     });
 
@@ -368,7 +368,12 @@ test("production refuses requests without a valid X-Endod-Client-IP", async ({ r
     expect(await res.json()).toEqual({ error: "The pharmacy site is not configured. Contact Endod support." });
   }
   const dispense = await request.post(`${PROD_URL}/api/dispense`, {
-    headers: { Origin: PROD_ORIGIN, "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
+    headers: {
+      Origin: PROD_ORIGIN,
+      "Content-Type": "application/json",
+      "X-Endod-Edge-Key": EDGE_SECRET,
+      "Idempotency-Key": crypto.randomUUID(),
+    },
     data: { token: samples.open.token, pharmacy_name: "Kenema Pharmacy", items: [{ item_index: 0, amount: 1, complete: false }] },
   });
   expect(dispense.status()).toBe(503);

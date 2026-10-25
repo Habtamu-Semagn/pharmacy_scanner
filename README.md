@@ -11,7 +11,7 @@ platform is in [docs/endod-api.md](docs/endod-api.md) (section 5 is this site).
   the tab's `sessionStorage` and never go in the URL.
 - `POST /api/lookup` and `POST /api/dispense`: server routes that call the platform
   with the pharmacy key. Browsers only ever talk to these.
-- `GET /api/health`: liveness probe.
+- `GET /api/health`: liveness probe (the Docker healthcheck; from localhost it needs no edge key).
 
 ## Running locally
 
@@ -35,7 +35,8 @@ the SMS code, or put the dev server behind HTTPS.
 | --- | --- | --- |
 | `PLATFORM_API_URL` | yes in production | Base URL of the platform's internal API, e.g. `http://endod-platform-api:8000` (the default). |
 | `PHARMACY_API_KEY` | yes | Sent as `X-Pharmacy-Key`. Server-side only: it is read at request time, never bundled, and never sent to the browser. |
-| `SITE_ORIGIN` | yes in production | `https://pharmacy.endod-health.com`. Comma-separated origins allowed to POST to the API routes (defaults to the request's own origin in development). An `https://` value also switches on production mode, which requires `X-Endod-Client-IP` (see [Client IP](#client-ip)). |
+| `SITE_ORIGIN` | yes in production | `https://pharmacy.endod-health.com`. Comma-separated origins allowed to POST to the API routes (defaults to the request's own origin in development). An `https://` value also switches on production mode, which requires `X-Endod-Client-IP` (see [Client IP](#client-ip)) and the edge key (see [Edge key](#edge-key)). |
+| `EDGE_SHARED_SECRET` | yes in production | At least 32 random characters, shared with nginx, which sends it as `X-Endod-Edge-Key` on every request. With an https `SITE_ORIGIN`, requests without it get 403, and while it is unset or shorter than 32 characters every request gets 503. Never put it in a URL or a log. |
 | `PORT`, `HOSTNAME` | no | Listen address of the standalone server (Docker sets `3000` and `0.0.0.0`). |
 
 Do not prefix any of these with `NEXT_PUBLIC_`.
@@ -66,6 +67,7 @@ docker run -d --name endod-pharmacy --restart unless-stopped \
   -e PLATFORM_API_URL=http://endod-platform-api:8000 \
   -e PHARMACY_API_KEY=... \
   -e SITE_ORIGIN=https://pharmacy.endod-health.com \
+  -e EDGE_SHARED_SECRET=... \
   -p 127.0.0.1:3000:3000 endod-pharmacy
 ```
 
@@ -105,6 +107,8 @@ server {
     proxy_set_header X-Forwarded-Proto $scheme;
     # Always set (overwrites anything the client sent). The site trusts nothing else.
     proxy_set_header X-Endod-Client-IP $endod_client_ip;
+    # The site's EDGE_SHARED_SECRET (403 without it). Keep it out of the logs.
+    proxy_set_header X-Endod-Edge-Key "<EDGE_SHARED_SECRET>";
   }
 }
 
@@ -129,6 +133,21 @@ In production (`SITE_ORIGIN` starts with `https://`), a request whose
 503 "The pharmacy site is not configured", and a warning is logged. In
 development and tests the site falls back to `127.0.0.1`. So `SITE_ORIGIN` must
 be set in production; without it the site behaves as in development.
+
+### Edge key
+
+The container also joins the shared edge network, where other projects'
+containers could call the site directly and forge `X-Endod-Client-IP`. So in
+production `proxy.ts` first checks every request (pages, `/api/*`, assets) for
+`X-Endod-Edge-Key` equal to `EDGE_SHARED_SECRET` (constant-time), which only
+nginx sends (as above), and answers 403 without it. The only exception is the
+container's healthcheck: `GET /api/health` from 127.0.0.1 or ::1 (the
+Dockerfile's `HEALTHCHECK`; the TCP peer address is checked, not a header).
+While `EDGE_SHARED_SECRET` is unset or shorter than 32 characters, every
+request gets 503 "The pharmacy site is not configured" and a warning is logged.
+The key is never passed on to the platform, echoed or logged. Without an https
+`SITE_ORIGIN` (development, tests) there is no check. In the compose file, pass
+it to the web service as `EDGE_SHARED_SECRET: ${EDGE_SHARED_SECRET:?...}`.
 
 ## Security notes
 
