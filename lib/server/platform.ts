@@ -120,16 +120,21 @@ export function idempotencyKey(req: NextRequest): string | null {
 
 // ---------------------------------------------------------------- body validation
 
-type Ref = { token: string } | { code: string; phone: string };
+type Ref = { token: string } | { code: string; phone?: string };
 
 export function parseRef(body: Json): Ref | null {
   if (body.token !== undefined) {
     return isToken(body.token) ? { token: body.token } : null;
   }
-  if (typeof body.code === "string" && typeof body.phone === "string") {
+  if (typeof body.code === "string") {
     const code = body.code.trim();
-    const phone = normalisePhone(body.phone);
-    if (CODE_RE.test(code) && PHONE_RE.test(phone)) return { code, phone };
+    if (CODE_RE.test(code)) {
+      if (body.phone === undefined || body.phone === null) return { code };
+      if (typeof body.phone === "string") {
+        const phone = normalisePhone(body.phone);
+        if (phone === "" || PHONE_RE.test(phone)) return { code, phone: phone || undefined };
+      }
+    }
   }
   return null;
 }

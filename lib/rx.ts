@@ -49,7 +49,7 @@ export interface Prescription {
 }
 
 /** Who the prescription is looked up by: the QR token, or SMS code + phone. */
-export type RxRef = { token: string } | { code: string; phone: string };
+export type RxRef = { token: string } | { code: string; phone?: string };
 
 export const ENDOD_RX_ORIGIN = "https://pharmacy.endod-health.com";
 
