@@ -71,7 +71,7 @@ export function newIdempotencyKey(): string {
 // tab's sessionStorage and are read by /rx/code.
 const CODE_KEY = "endod.rx.codeLookup";
 
-export function saveCodeLookup(ref: { code: string; phone: string }, rx: Prescription) {
+export function saveCodeLookup(ref: { code: string; phone?: string }, rx: Prescription) {
   try {
     sessionStorage.setItem(CODE_KEY, JSON.stringify({ ref, rx }));
   } catch {
@@ -79,7 +79,7 @@ export function saveCodeLookup(ref: { code: string; phone: string }, rx: Prescri
   }
 }
 
-export function readCodeLookup(): { ref: { code: string; phone: string }; rx: Prescription } | null {
+export function readCodeLookup(): { ref: { code: string; phone?: string }; rx: Prescription } | null {
   try {
     const raw = sessionStorage.getItem(CODE_KEY);
     return raw ? JSON.parse(raw) : null;

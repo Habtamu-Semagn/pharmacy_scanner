@@ -6,8 +6,20 @@ import { useRouter } from "next/navigation";
 import { BrowserQRCodeReader } from "@zxing/browser";
 import type { IScannerControls } from "@zxing/browser";
 import type { Result } from "@zxing/library";
-import { CODE_RE, PHONE_RE, normalisePhone, tokenFromScan } from "@/lib/rx";
+import { CODE_RE, tokenFromScan } from "@/lib/rx";
 import { lookup, saveCodeLookup } from "@/lib/client";
+import {
+  AlertCircle,
+  CheckCircle,
+  Crosshair,
+  Flashlight,
+  FlashlightOff,
+  Images,
+  MessageSquare,
+  RefreshCw,
+  ScanLine,
+  SwitchCamera,
+} from "lucide-react";
 
 type ScanStatus = "idle" | "starting" | "scanning" | "found" | "rejected" | "error";
 
@@ -46,7 +58,6 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
 
   const [otp, setOtp] = useState("");
-  const [phone, setPhone] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [codeError, setCodeError] = useState<string | null>(null);
 
@@ -225,18 +236,13 @@ export default function Home() {
   const handleVerify = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (verifying) return;
-    const ph = normalisePhone(phone);
     if (!CODE_RE.test(otp)) {
       setCodeError("Enter the 6-digit code from the patient's SMS.");
       return;
     }
-    if (!PHONE_RE.test(ph)) {
-      setCodeError("Enter the patient's phone number, for example 0911 223344.");
-      return;
-    }
     setVerifying(true);
     setCodeError(null);
-    const ref = { code: otp, phone: ph };
+    const ref = { code: otp };
     const result = await lookup(ref);
     if (!result.ok) {
       setVerifying(false);
@@ -245,9 +251,7 @@ export default function Home() {
     }
     saveCodeLookup(ref, result.prescription);
     stopScanner();
-    // Keep the code and phone out of this (preserved) page once used.
     setOtp("");
-    setPhone("");
     setVerifying(false);
     router.push("/rx/code");
   };
@@ -283,15 +287,7 @@ export default function Home() {
                   )}
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-black"></span>
                 </span>
-                <span className="font-label-sm text-label-sm text-black truncate">
-                  {live ? "Scanning" : status === "found" ? "Scan locked" : "Idle"}
-                </span>
               </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-space-xs flex-shrink-0">
-            <div className="w-8 h-8 rounded-full bg-black flex items-center justify-center">
-              <span className="material-symbols-outlined text-white text-[18px]">person</span>
             </div>
           </div>
         </div>
@@ -303,7 +299,7 @@ export default function Home() {
           <div className="w-full max-w-md md:max-w-lg lg:max-w-2xl mx-auto bg-surface-container-lowest rounded-xl p-space-lg lg:p-space-xl shadow-sm flex flex-col items-center">
             <div className="w-full flex items-center justify-between mb-space-sm px-1">
               <div className="flex items-center gap-1.5 text-black">
-                <span className="material-symbols-outlined text-[18px]">document_scanner</span>
+                <ScanLine size={18} />
                 <span className="font-label-lg text-label-lg">Scan prescription QR</span>
               </div>
               <span className="bg-surface-container text-on-surface-variant font-label-sm text-label-sm px-2.5 py-1 rounded-full">
@@ -351,7 +347,7 @@ export default function Home() {
                       torchOn ? "bg-black text-white hover:bg-gray-800" : "bg-black/75 text-white hover:bg-black"
                     }`}
                   >
-                    <span className="material-symbols-outlined text-[18px]">{torchOn ? "flash_on" : "flash_off"}</span>
+                    {torchOn ? <Flashlight size={18} /> : <FlashlightOff size={18} />}
                   </button>
                 )}
                 {devices.length > 1 && live && (
@@ -361,7 +357,7 @@ export default function Home() {
                     onClick={handleSwitchCamera}
                     className="w-9 h-9 rounded-full bg-black/75 text-white flex items-center justify-center hover:bg-black transition-all active:scale-95 shadow-sm"
                   >
-                    <span className="material-symbols-outlined text-[18px]">flip_camera_ios</span>
+                    <SwitchCamera size={18} />
                   </button>
                 )}
               </div>
@@ -369,9 +365,13 @@ export default function Home() {
 
             <div className="w-full mt-space-md flex flex-col sm:flex-row items-center justify-between gap-space-sm">
               <div className="flex items-center gap-1.5 text-black" role="status" aria-live="polite">
-                <span className="material-symbols-outlined text-[18px]">
-                  {status === "found" ? "check_circle" : status === "error" || status === "rejected" ? "error" : "center_focus_strong"}
-                </span>
+                {status === "found" ? (
+                    <CheckCircle size={18} />
+                  ) : status === "error" || status === "rejected" ? (
+                    <AlertCircle size={18} />
+                  ) : (
+                    <Crosshair size={18} />
+                  )}
                 <span className="font-label-sm text-label-sm" data-testid="scan-message">{message}</span>
               </div>
               <div className="flex items-center gap-2">
@@ -388,7 +388,7 @@ export default function Home() {
                   onClick={() => fileInputRef.current?.click()}
                   className="px-4 py-2 bg-black text-white font-label-md text-label-md rounded-xl hover:bg-gray-800 transition-colors flex items-center justify-center gap-1.5"
                 >
-                  <span className="material-symbols-outlined text-[18px]">photo_library</span>
+                  <Images size={18} />
                   <span>Upload QR</span>
                 </button>
                 {!live && (
@@ -397,7 +397,7 @@ export default function Home() {
                     onClick={resetScan}
                     className="px-4 py-2 bg-black text-white font-label-md text-label-md rounded-xl hover:bg-gray-800 transition-colors flex items-center justify-center gap-1.5"
                   >
-                    <span className="material-symbols-outlined text-[18px]">refresh</span>
+                    <RefreshCw size={18} />
                     <span>Rescan</span>
                   </button>
                 )}
@@ -419,7 +419,7 @@ export default function Home() {
           <div className="flex items-center justify-center my-1">
             <div className="h-[1px] bg-outline-variant/40 flex-1"></div>
             <span className="px-space-md font-label-sm text-label-sm text-outline tracking-widest uppercase">
-              OR ENTER SMS CODE
+              ENTER CODE
             </span>
             <div className="h-[1px] bg-outline-variant/40 flex-1"></div>
           </div>
@@ -435,11 +435,10 @@ export default function Home() {
                   Prescription Code
                 </label>
                 <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
-                  The 6-digit code is in the patient&apos;s SMS from Endod. It cannot be resent from
-                  here; the patient can also find it in the Endod app.
+                  The 6-digit code is in the patient&apos;s code from Endod
                 </p>
               </div>
-              <span className="material-symbols-outlined text-black text-[24px]">sms</span>
+              <MessageSquare size={24} className="text-black" />
             </div>
             <input
               aria-label="Enter 6 digit prescription code"
@@ -483,24 +482,7 @@ export default function Home() {
               })}
             </div>
 
-            <label className="block max-w-sm mx-auto" htmlFor="phone-input-field">
-              <span className="font-label-md text-label-md text-on-surface-variant">Patient&apos;s phone number</span>
-              <input
-                id="phone-input-field"
-                name="phone"
-                type="tel"
-                inputMode="tel"
-                autoComplete="off"
-                placeholder="09.. .. .. .."
-                maxLength={20}
-                value={phone}
-                onChange={(e) => {
-                  setPhone(e.target.value);
-                  setCodeError(null);
-                }}
-                className="mt-1 w-full h-12 rounded-xl bg-surface-container-low px-4 font-body-lg text-body-lg text-on-surface placeholder:text-on-surface-variant/50 outline-none focus:ring-2 focus:ring-black"
-              />
-            </label>
+
 
             {codeError && (
               <div
@@ -518,7 +500,7 @@ export default function Home() {
                 disabled={verifying}
                 className="mx-auto w-fit h-12 px-10 rounded-xl font-label-lg text-label-lg shadow-sm flex items-center justify-center gap-space-xs transition-all active:scale-[0.98] bg-black text-white hover:bg-gray-800 disabled:opacity-60"
               >
-                <span className="material-symbols-outlined text-[20px]">task_alt</span>
+                <CheckCircle size={20} />
                 <span>{verifying ? "Looking up..." : "Find Prescription"}</span>
               </button>
             </div>

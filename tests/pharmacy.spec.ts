@@ -71,22 +71,20 @@ test("a bad or unknown token is refused", async ({ page }) => {
   await expect(page.getByTestId("rx-error")).toContainText("not a valid Endod prescription");
 });
 
-test("code + phone lookup, wrong phone is a 404", async ({ page }) => {
+test("code lookup: an unknown code is refused", async ({ page }) => {
   await page.goto("/");
-  await page.locator("#otp-input-field").fill(samples.open.code);
-  await page.locator("#phone-input-field").fill("0911000000");
+  await page.locator("#otp-input-field").fill("000000");
   await page.getByRole("button", { name: "Find Prescription" }).click();
   await expect(page.getByTestId("code-error")).toContainText("No prescription found");
   await expect(page).toHaveURL(`${BASE_URL}/`);
 
-  await page.locator("#phone-input-field").fill("+251 911 223 344");
+  await page.locator("#otp-input-field").fill(samples.open.code);
   await page.getByRole("button", { name: "Find Prescription" }).click();
   await expect(page).toHaveURL(`${BASE_URL}/rx/code`);
   await expect(page.getByTestId("rx-patient")).toHaveText("Abebe Tadesse Worku");
   expect(page.url()).not.toContain(samples.open.code);
-  expect(page.url()).not.toContain("911");
 
-  // A code lookup can dispense too (code + phone go to the API, not the URL).
+  // A code lookup can dispense too (the code goes to the API, not the URL).
   await page.locator("#pharmacy-name").fill("Kenema Pharmacy");
   await fillDispense(page, { 1: 2 });
   await confirmDispense(page);

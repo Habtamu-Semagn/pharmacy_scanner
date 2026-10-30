@@ -162,10 +162,17 @@ function resolve(body, ip) {
       return [429, { detail: "Too many requests" }, { "Retry-After": "3600" }];
     }
     const rx = [...db.values()].find((r) => r.code === body.code);
-    if (!rx || normPhone(rx.phone) !== normPhone(body.phone)) {
+    if (!rx) {
       hits(failsByIp, ip).push(Date.now());
       hits(failsByCode, body.code).push(Date.now());
       return [404, { detail: "Not found" }];
+    }
+    if (body.phone !== undefined && body.phone !== null && String(body.phone).trim() !== "") {
+      if (normPhone(rx.phone) !== normPhone(body.phone)) {
+        hits(failsByIp, ip).push(Date.now());
+        hits(failsByCode, body.code).push(Date.now());
+        return [404, { detail: "Not found" }];
+      }
     }
     return rx;
   }
