@@ -140,3 +140,65 @@
   main > :last-child { margin-bottom: 0 !important; }
 }
 /* keep native scrollbars for usability */
+
+.bg-rings {
+  background-image:
+    radial-gradient(circle at 85% 18%, rgba(255, 255, 255, 0.04) 0px, rgba(255, 255, 255, 0.04) 90px, transparent 91px),
+    radial-gradient(circle at 85% 18%, rgba(255, 255, 255, 0.028) 0px, rgba(255, 255, 255, 0.028) 160px, transparent 161px);
+}
+
+@keyframes scanMotion {
+  0%, 100% {
+    transform: translateY(-14px);
+    opacity: 0.9;
+  }
+  50% {
+    transform: translateY(14px);
+    opacity: 1;
+  }
+}
+
+.laser-beam {
+  animation: scanMotion 2.4s ease-in-out infinite alternate;
+  box-shadow: 0 0 10px 2px rgba(253, 183, 20, 0.75);
+}
+
+.camera-feed-fallback {
+  background-color: #55575a;
+  background-image:
+    radial-gradient(circle at 80% 85%, rgba(68, 79, 90, 0.8) 0%, transparent 45%),
+    radial-gradient(circle at 20% 75%, rgba(42, 63, 50, 0.95) 0%, transparent 35%),
+    radial-gradient(circle at 25% 82%, rgba(26, 44, 53, 0.9) 0%, transparent 40%),
+    linear-gradient(180deg, #6c6d71 0%, #54565a 40%, #3e4146 100%);
+}
+
+.detail-bg-circle-1 {
+  position: absolute;
+  width: 480px;
+  height: 480px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.035);
+  top: -120px;
+  right: -160px;
+  pointer-events: none;
+}
+.detail-bg-circle-2 {
+  position: absolute;
+  width: 520px;
+  height: 520px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  bottom: 20px;
+  left: -220px;
+  pointer-events: none;
+}
+.detail-bg-circle-3 {
+  position: absolute;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.025);
+  top: 140px;
+  left: -100px;
+  pointer-events: none;
+}

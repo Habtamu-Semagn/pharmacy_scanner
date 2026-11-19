@@ -73,10 +73,12 @@ test("a bad or unknown token is refused", async ({ page }) => {
 
 test("code lookup: an unknown code is refused", async ({ page }) => {
   await page.goto("/");
+  await page.getByTestId("onboarding-continue").click();
+  await expect(page).toHaveURL(`${BASE_URL}/scan`);
   await page.locator("#otp-input-field").fill("000000");
   await page.getByRole("button", { name: "Find Prescription" }).click();
   await expect(page.getByTestId("code-error")).toContainText("No prescription found");
-  await expect(page).toHaveURL(`${BASE_URL}/`);
+  await expect(page).toHaveURL(`${BASE_URL}/scan`);
 
   await page.locator("#otp-input-field").fill(samples.open.code);
   await page.getByRole("button", { name: "Find Prescription" }).click();
@@ -230,10 +232,12 @@ test("scan decoding accepts only Endod prescription URLs", () => {
 
 test("an uploaded non-Endod QR is refused; an Endod QR opens the prescription", async ({ page }) => {
   await page.goto("/");
+  await page.getByTestId("onboarding-continue").click();
+  await expect(page).toHaveURL(`${BASE_URL}/scan`);
   const foreign = await QRCode.toBuffer("https://example.com/rx/hello", { width: 300, margin: 4 });
   await page.getByTestId("qr-upload").setInputFiles({ name: "qr.png", mimeType: "image/png", buffer: foreign });
   await expect(page.getByTestId("scan-error")).toContainText("Not an Endod prescription");
-  await expect(page).toHaveURL(`${BASE_URL}/`);
+  await expect(page).toHaveURL(`${BASE_URL}/scan`);
 
   const endod = await QRCode.toBuffer(`https://pharmacy.endod-health.com/rx/${samples.open.token}`, { width: 300, margin: 4 });
   await page.getByTestId("qr-upload").setInputFiles({ name: "qr.png", mimeType: "image/png", buffer: endod });
@@ -298,7 +302,7 @@ test("the platform key never reaches the browser", async ({ page, request }) => 
       /* redirects and the like have no body */
     }
   });
-  await page.goto("/");
+  await page.goto("/scan");
   await page.goto(`/rx/${samples.open.token}`);
   await expect(page.getByTestId("rx-patient")).toBeVisible();
   await page.goto("/rx/code");

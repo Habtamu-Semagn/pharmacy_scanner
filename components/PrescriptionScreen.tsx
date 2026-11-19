@@ -34,10 +34,10 @@ const STATUS_LABEL: Record<RxStatus, string> = {
 };
 
 const STATUS_BADGE: Record<RxStatus, string> = {
-  open: "bg-emerald-50 text-emerald-800 border-emerald-200",
-  completed: "bg-slate-100 text-slate-700 border-slate-300",
-  expired: "bg-amber-50 text-amber-800 border-amber-200",
-  retracted: "bg-red-50 text-red-800 border-red-200",
+  open: "bg-emerald-500/15 text-emerald-200 border-emerald-400/30",
+  completed: "bg-slate-400/15 text-slate-200 border-slate-300/30",
+  expired: "bg-amber-500/15 text-amber-200 border-amber-400/30",
+  retracted: "bg-red-500/15 text-red-200 border-red-400/30",
 };
 
 function closedMessage(rx: Prescription): string | null {
@@ -74,7 +74,6 @@ interface Line {
   complete: boolean;
 }
 
-/** `token` null means a code lookup (code and phone come from sessionStorage). */
 export default function PrescriptionScreen({ token }: { token: string | null }) {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>({ name: "loading" });
@@ -91,12 +90,6 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
   const [canRetry, setCanRetry] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // The Idempotency-Key of a submission whose outcome is not known yet (in
-  // flight, or it failed with a timeout/network/server error, so Endod may
-  // already have recorded it). Any later submission of the same lines and
-  // pharmacy name reuses it, even after Back or editing and undoing, so the
-  // platform cannot dispense twice. It is dropped only after a definite answer
-  // (success or refusal); a submission with different lines gets a new key.
   const pendingRef = useRef<{ key: string; fingerprint: string } | null>(null);
   const sendingRef = useRef(false);
 
@@ -142,7 +135,6 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
     };
   }, [token]);
 
-  // Clears messages only; the pending key is matched by fingerprint in submit().
   const resetSubmission = () => {
     setCanRetry(false);
     setFormError(null);
@@ -236,7 +228,6 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
     }
 
     if (result.retryable) {
-      // Endod may or may not have recorded it: keep the key for a retry.
       setFormError(
         `${result.error} It may already have been recorded: try again without changing anything, or reload the prescription before changing the amounts.`,
       );
@@ -254,81 +245,45 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
 
   const newScan = () => {
     clearCodeLookup();
-    router.push("/");
+    router.push("/scan");
   };
-
-  // ------------------------------------------------------------------ render
-
-  const header = (
-    <header className="fixed top-0 left-0 right-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200 pt-safe print:static print:border-0">
-      <div className="h-16 px-4 sm:px-5 max-w-xl mx-auto flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <Link
-            href="/"
-            aria-label="Back to scanner"
-            onClick={() => clearCodeLookup()}
-            className="w-9 h-9 rounded-lg bg-white text-slate-900 border border-slate-200 flex items-center justify-center shrink-0 hover:bg-slate-50 print:hidden"
-          >
-            <span className="material-symbols-outlined text-[20px]">arrow_back</span>
-          </Link>
-          <div className="w-9 h-9 rounded-lg bg-white text-slate-900 border border-slate-200 items-center justify-center shrink-0 hidden print:flex">
-            <span className="material-symbols-outlined text-[20px]">local_hospital</span>
-          </div>
-          <div className="min-w-0">
-            <h1 className="text-sm font-semibold text-slate-900 leading-tight truncate">
-              {rx?.hospital_name || "Endod prescription"}
-            </h1>
-            <p className="text-xs text-slate-500 leading-none mt-0.5">Endod Health prescription</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {rx && (
-            <span
-              data-testid="rx-status"
-              className={`font-mono text-xs font-semibold px-2.5 py-1 rounded-md border ${STATUS_BADGE[rx.status]}`}
-            >
-              {STATUS_LABEL[rx.status]}
-            </span>
-          )}
-          {rx && (
-            <button
-              type="button"
-              onClick={print}
-              aria-label="Print prescription"
-              className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors print:hidden"
-            >
-              <span className="material-symbols-outlined text-[20px]">print</span>
-            </button>
-          )}
-        </div>
-      </div>
-    </header>
-  );
 
   if (phase.name !== "ready" || !rx) {
     return (
-      <div className="font-sans antialiased bg-slate-50 min-h-screen flex flex-col text-slate-900">
-        {header}
-        <main className="flex-1 w-full max-w-xl mx-auto pt-24 pb-12 px-4 sm:px-5 flex flex-col gap-6">
+      <div className="relative min-h-dvh overflow-hidden bg-[#1a1b1f] text-white">
+        <div className="detail-bg-circle-1" />
+        <div className="detail-bg-circle-2" />
+        <div className="detail-bg-circle-3" />
+        <main className="relative z-10 mx-auto flex min-h-dvh w-full max-w-4xl flex-col px-4 pb-10 pt-6 sm:px-6 sm:pt-8">
+          <header className="mb-6 flex items-center gap-4">
+            <Link
+              href="/scan"
+              aria-label="Back to scanner"
+              onClick={() => clearCodeLookup()}
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-[#24262b] text-[#f5a623] shadow-md transition-transform active:scale-95"
+            >
+              <svg className="h-5 w-5 stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M15 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </Link>
+            <h1 className="text-[22px] font-semibold tracking-wide text-gray-100">Prescription</h1>
+          </header>
+
           {phase.name === "loading" ? (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-lg px-6 py-10 flex flex-col items-center gap-3" role="status">
-              <span className="material-symbols-outlined text-[28px] text-slate-400 animate-spin">progress_activity</span>
-              <p className="text-sm text-slate-600">Looking up the prescription...</p>
+            <div className="mx-auto mt-10 w-full max-w-xl rounded-2xl border border-white/10 bg-[#26282e]/90 px-6 py-10 text-center shadow-lg backdrop-blur-md" role="status">
+              <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-[#f5a623]" />
+              <p className="text-sm text-gray-300">Looking up the prescription...</p>
             </div>
           ) : (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-lg px-6 py-8 flex flex-col items-center gap-3 text-center" role="alert">
-              <span className="material-symbols-outlined text-[28px] text-slate-500">
-                {phase.name === "error" && phase.noCode ? "sms" : "search_off"}
-              </span>
-              <p className="text-sm font-semibold text-slate-900" data-testid="rx-error">
+            <div className="mx-auto mt-10 w-full max-w-xl rounded-2xl border border-white/10 bg-[#26282e]/90 px-6 py-8 text-center shadow-lg backdrop-blur-md" role="alert">
+              <p className="text-sm font-semibold text-white" data-testid="rx-error">
                 {phase.name === "error" ? phase.message : ""}
               </p>
               <button
                 type="button"
                 onClick={newScan}
-                className="mt-2 h-11 px-6 bg-white text-slate-900 border border-slate-300 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 hover:bg-slate-50"
+                className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#24262c] px-6 text-sm font-semibold text-[#f5a623] hover:bg-[#2c2f37]"
               >
-                <span className="material-symbols-outlined text-[18px]">qr_code_scanner</span>
                 Back to scanner
               </button>
             </div>
@@ -344,19 +299,80 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
   const ageSex = [rx.patient.age !== null ? `${rx.patient.age} yrs` : null, rx.patient.sex].filter(Boolean).join(" • ");
 
   return (
-    <div className="font-sans antialiased bg-slate-50 min-h-screen flex flex-col text-slate-900 print:bg-white">
-      {header}
+    <div className="relative min-h-dvh overflow-hidden bg-[#1a1b1f] text-white print:bg-white print:text-slate-900">
+      <div className="detail-bg-circle-1 print:hidden" />
+      <div className="detail-bg-circle-2 print:hidden" />
+      <div className="detail-bg-circle-3 print:hidden" />
 
-      <main className="flex-1 w-full max-w-xl mx-auto pt-24 pb-12 px-4 sm:px-5 flex flex-col gap-6 print:pt-4">
+      <main className="relative z-10 mx-auto flex w-full max-w-5xl flex-col px-4 pb-12 pt-6 sm:px-6 sm:pt-8 print:max-w-none print:px-0 print:pt-0">
+        <header className="mb-6 flex items-center justify-between gap-3 print:mb-4">
+          <div className="flex min-w-0 items-center gap-4">
+            <Link
+              href="/scan"
+              aria-label="Back to scanner"
+              onClick={() => clearCodeLookup()}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#24262b] text-[#f5a623] shadow-md transition-transform active:scale-95 print:hidden"
+            >
+              <svg className="h-5 w-5 stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M15 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </Link>
+            <div className="min-w-0">
+              <h1 className="text-[22px] font-semibold tracking-wide text-gray-100 print:text-slate-900">Prescription</h1>
+              <p className="truncate text-xs text-gray-400 print:text-slate-600">Endod Health prescription</p>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <span
+              data-testid="rx-status"
+              className={`rounded-md border px-2.5 py-1 font-mono text-xs font-semibold ${STATUS_BADGE[rx.status]} print:border-slate-300 print:bg-white print:text-slate-800`}
+            >
+              {STATUS_LABEL[rx.status]}
+            </span>
+            <button
+              type="button"
+              onClick={print}
+              aria-label="Print prescription"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-[#24262b] text-[#f5a623] hover:bg-[#2c2f37] print:hidden"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 9V4h12v5M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" strokeLinecap="round" strokeLinejoin="round" />
+                <rect x="6" y="14" width="12" height="7" rx="1.5" />
+              </svg>
+            </button>
+          </div>
+        </header>
+
+        <section className="mb-6 rounded-xl border border-white/10 bg-[#26282e]/90 px-4 py-4 shadow-lg backdrop-blur-md print:border-slate-200 print:bg-white print:shadow-none">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold tracking-wide text-white print:text-slate-900" data-testid="rx-hospital">
+                {rx.hospital_name}
+              </h2>
+              {rx.doctor_name && <p className="mt-1 text-sm text-gray-400 print:text-slate-600">Prescribed by {rx.doctor_name}</p>}
+            </div>
+            <span className="inline-flex w-fit shrink-0 rounded-full border border-white/10 bg-[#24262c] px-3 py-1 font-mono text-xs font-semibold text-gray-200 print:border-slate-200 print:bg-slate-50 print:text-slate-700">
+              {rx.items.length} {rx.items.length === 1 ? "item" : "items"}
+            </span>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-4 border-t border-dashed border-white/10 pt-4 text-sm print:border-slate-200">
+            <div>
+              <span className="text-xs font-medium text-gray-400 print:text-slate-500">Written</span>
+              <div className="mt-1 font-mono font-semibold text-white print:text-slate-900">{formatDate(rx.written_at)}</div>
+            </div>
+            <div className="text-right">
+              <span className="text-xs font-medium text-gray-400 print:text-slate-500">Expires</span>
+              <div className="mt-1 font-mono font-semibold text-white print:text-slate-900">{formatDate(rx.expires_at)}</div>
+            </div>
+          </div>
+        </section>
+
         {closed && (
           <div
             role="status"
             data-testid="rx-closed"
-            className={`rounded-2xl border px-5 py-4 text-sm font-medium flex items-start gap-3 ${STATUS_BADGE[rx.status]}`}
+            className={`mb-6 flex items-start gap-3 rounded-2xl border px-5 py-4 text-sm font-medium ${STATUS_BADGE[rx.status]} print:bg-white print:text-slate-800`}
           >
-            <span className="material-symbols-outlined text-[20px] shrink-0">
-              {rx.status === "completed" ? "task_alt" : rx.status === "expired" ? "event_busy" : "block"}
-            </span>
             <span>{closed}</span>
           </div>
         )}
@@ -364,305 +380,275 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
           <div
             role="status"
             data-testid="rx-success"
-            className="rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-900 px-5 py-4 text-sm font-medium flex items-start gap-3 print:hidden"
+            className="mb-6 rounded-2xl border border-emerald-400/30 bg-emerald-500/15 px-5 py-4 text-sm font-medium text-emerald-100 print:hidden"
           >
-            <span className="material-symbols-outlined text-[20px] shrink-0">check_circle</span>
-            <span>{success}</span>
+            {success}
           </div>
         )}
 
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden print:shadow-none">
-          {/* Prescription header */}
-          <section className="px-5 sm:px-6 py-6">
-            <div className="flex items-start justify-between gap-3 mb-5">
-              <div className="min-w-0">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Prescription</p>
-                <h2 className="text-base font-semibold text-slate-900 tracking-tight leading-snug break-words" data-testid="rx-hospital">
-                  {rx.hospital_name}
-                </h2>
-                {rx.doctor_name && <p className="text-sm text-slate-500 mt-1 break-words">Prescribed by {rx.doctor_name}</p>}
+        <section className="mb-6 rounded-2xl border border-[#f5a623]/50 bg-[#26282e]/90 p-4 shadow-[0_0_20px_rgba(245,166,35,0.12)] backdrop-blur-md sm:p-6 print:border-slate-200 print:bg-white print:shadow-none">
+          <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="rounded-xl border border-white/10 bg-[#1f2126] p-4 sm:p-5 print:border-slate-200 print:bg-white">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold text-white print:text-slate-900">Patient</h3>
+                <span className="truncate rounded-md border border-white/10 bg-[#24262c] px-2.5 py-1 font-mono text-xs font-medium text-gray-200 print:border-slate-200 print:bg-slate-50 print:text-slate-700">
+                  Endod ID: {rx.patient.dedan_id || "-"}
+                </span>
               </div>
-              <span className="font-mono text-xs font-semibold text-slate-700 bg-slate-50 px-2.5 py-1 rounded-full border border-slate-200 whitespace-nowrap shrink-0">
-                {rx.items.length} {rx.items.length === 1 ? "item" : "items"}
-              </span>
+              <div className="grid grid-cols-1 gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <span className="text-xs font-medium text-gray-400 print:text-slate-500">Patient Name</span>
+                  <span className="break-words font-semibold text-white print:text-slate-900" data-testid="rx-patient">{rx.patient.name}</span>
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs font-medium text-gray-400 print:text-slate-500">Age & Sex</span>
+                  <span className="font-medium text-gray-200 print:text-slate-800">{ageSex || "-"}</span>
+                </div>
+              </div>
+              {rx.notes && (
+                <div className="mt-5 border-t border-white/10 pt-4 print:border-slate-200">
+                  <span className="text-xs font-medium text-gray-400 print:text-slate-500">Notes from the prescriber</span>
+                  <p className="mt-1 whitespace-pre-line break-words text-sm leading-relaxed text-gray-200 print:text-slate-900">{rx.notes}</p>
+                </div>
+              )}
             </div>
-            <div className="grid grid-cols-2 gap-4 pt-5 border-t border-dashed border-slate-200">
-              <div>
-                <span className="text-xs text-slate-400 font-medium">Written</span>
-                <div className="font-mono font-semibold text-slate-900 mt-1 text-sm">{formatDate(rx.written_at)}</div>
-              </div>
-              <div className="text-right">
-                <span className="text-xs text-slate-400 font-medium">Expires</span>
-                <div className="font-mono font-semibold text-slate-900 mt-1 text-sm">{formatDate(rx.expires_at)}</div>
-              </div>
-            </div>
-          </section>
 
-          {/* Patient */}
-          <section className="px-5 sm:px-6 py-6 border-t border-slate-100 bg-slate-50/40">
-            <div className="flex items-center justify-between gap-3 mb-4">
-              <h3 className="text-sm font-semibold text-slate-900">Patient</h3>
-              <span className="font-mono text-xs font-medium text-slate-700 bg-white px-2.5 py-1 rounded-md border border-slate-200 truncate">
-                Endod ID: {rx.patient.dedan_id || "-"}
-              </span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 text-sm">
-              <div className="flex flex-col gap-0.5 min-w-0">
-                <span className="text-xs text-slate-400 font-medium">Patient Name</span>
-                <span className="font-semibold text-slate-900 break-words" data-testid="rx-patient">{rx.patient.name}</span>
+            <form onSubmit={review} noValidate className="rounded-xl border border-white/10 bg-[#1f2126] p-4 sm:p-5 print:border-slate-200 print:bg-white">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-white print:text-slate-900">Dispense</h3>
+                {open && <span className="text-xs font-medium text-gray-400 print:hidden">Give now</span>}
               </div>
-              <div className="flex flex-col gap-0.5">
-                <span className="text-xs text-slate-400 font-medium">Age & Sex</span>
-                <span className="font-medium text-slate-800">{ageSex || "-"}</span>
-              </div>
-            </div>
-            {rx.notes && (
-              <div className="mt-5 pt-4 border-t border-slate-200/70">
-                <span className="text-xs text-slate-400 font-medium">Notes from the prescriber</span>
-                <p className="text-sm text-slate-900 leading-relaxed mt-1 whitespace-pre-line break-words">{rx.notes}</p>
-              </div>
-            )}
-          </section>
+              {open ? (
+                <>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <label className="flex flex-col gap-1 text-sm" htmlFor="pharmacy-name">
+                      <span className="text-xs font-medium text-gray-400">Pharmacy name (shown to the patient)</span>
+                      <input
+                        id="pharmacy-name"
+                        required
+                        minLength={2}
+                        maxLength={120}
+                        autoComplete="organization"
+                        disabled={step !== "edit"}
+                        value={pharmacyName}
+                        onChange={(e) => {
+                          resetSubmission();
+                          setPharmacyName(e.target.value);
+                        }}
+                        className="h-11 rounded-lg border border-white/10 bg-[#24262c] px-3 text-sm text-white placeholder:text-gray-500 focus:border-[#f5a623] focus:outline-none focus:ring-1 focus:ring-[#f5a623] disabled:bg-[#1b1d22] disabled:text-gray-400 print:border-slate-300 print:bg-white print:text-slate-900"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1 text-sm" htmlFor="pharmacist-name">
+                      <span className="text-xs font-medium text-gray-400">Pharmacist (optional)</span>
+                      <input
+                        id="pharmacist-name"
+                        maxLength={120}
+                        autoComplete="name"
+                        disabled={step !== "edit"}
+                        value={pharmacistName}
+                        onChange={(e) => {
+                          resetSubmission();
+                          setPharmacistName(e.target.value);
+                        }}
+                        className="h-11 rounded-lg border border-white/10 bg-[#24262c] px-3 text-sm text-white placeholder:text-gray-500 focus:border-[#f5a623] focus:outline-none focus:ring-1 focus:ring-[#f5a623] disabled:bg-[#1b1d22] disabled:text-gray-400 print:border-slate-300 print:bg-white print:text-slate-900"
+                      />
+                    </label>
+                  </div>
 
-          {/* Medication orders + dispense inputs */}
-          <form onSubmit={review} noValidate>
-            <section className="px-5 sm:px-6 py-6 border-t border-slate-100">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-slate-900">Medication Orders</h3>
-                {open && <span className="text-xs font-medium text-slate-500 print:hidden">Give now</span>}
-              </div>
-              <ol className="flex flex-col divide-y divide-slate-100">
-                {rx.items.map((item, n) => {
-                  const left = remaining(item);
-                  const editable = open && item.status !== "given" && step === "edit";
-                  const inputId = `give-${item.item_index}`;
-                  return (
-                    <li key={item.item_index} className="py-4 first:pt-0 last:pb-0" data-testid={`item-${item.item_index}`}>
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
-                        <div className="flex items-start gap-3 min-w-0">
-                          <span className="font-mono text-sm font-semibold text-slate-400 mt-0.5">{n + 1}</span>
-                          <div className="min-w-0">
-                            <h4 className="text-sm font-semibold text-slate-900 leading-snug break-words">{item.drug}</h4>
-                            {meta(item) && <div className="text-xs text-slate-500 mt-0.5 break-words">{meta(item)}</div>}
-                            {item.notes && <div className="text-xs text-slate-600 mt-1 italic break-words">{item.notes}</div>}
-                            <div
-                              className={`text-xs mt-1.5 font-medium ${item.status === "given" ? "text-emerald-700" : "text-slate-700"}`}
-                              data-testid={`progress-${item.item_index}`}
-                            >
-                              {itemProgress(item)}
-                            </div>
-                          </div>
-                        </div>
-                        <span className="font-mono text-xs font-semibold bg-white text-slate-900 border border-slate-300 px-2.5 py-1 rounded-md self-start ml-7 sm:ml-0 max-w-full break-words">
-                          Qty: {item.quantity_text || formatQty(item.quantity_total)}
-                        </span>
-                      </div>
-
-                      {editable && (
-                        <div className="ml-7 mt-3 print:hidden">
-                          {item.quantity_total !== null ? (
-                            <label htmlFor={inputId} className="flex items-center gap-2 text-sm">
-                              <span className="text-slate-600">Give now</span>
-                              <input
-                                id={inputId}
-                                type="number"
-                                inputMode="decimal"
-                                min={0}
-                                max={left ?? undefined}
-                                step="any"
-                                placeholder="0"
-                                value={amounts[item.item_index] ?? ""}
-                                onChange={(e) => {
-                                  resetSubmission();
-                                  setAmounts((a) => ({ ...a, [item.item_index]: e.target.value }));
-                                }}
-                                className="w-24 h-10 rounded-lg border border-slate-300 px-3 font-mono text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
-                              />
-                              <span className="text-slate-500 text-xs">of {formatQty(left)} left</span>
-                            </label>
-                          ) : (
-                            <label htmlFor={inputId} className="flex items-center gap-2 text-sm cursor-pointer">
-                              <input
-                                id={inputId}
-                                type="checkbox"
-                                checked={!!fully[item.item_index]}
-                                onChange={(e) => {
-                                  resetSubmission();
-                                  setFully((f) => ({ ...f, [item.item_index]: e.target.checked }));
-                                }}
-                                className="w-5 h-5 accent-slate-900"
-                              />
-                              <span className="text-slate-700">Given fully</span>
-                            </label>
-                          )}
-                        </div>
-                      )}
-                    </li>
-                  );
-                })}
-              </ol>
-            </section>
-
-            {/* Dispense history */}
-            <section className="px-5 sm:px-6 py-6 border-t border-slate-100">
-              <h3 className="text-sm font-semibold text-slate-900 mb-4">Dispense History</h3>
-              {rx.dispenses.length === 0 ? (
-                <p className="text-sm text-slate-500" data-testid="history-empty">Nothing has been dispensed yet.</p>
-              ) : (
-                <ul className="flex flex-col gap-3" data-testid="history">
-                  {rx.dispenses.map((d, i) => (
-                    <li key={`${d.at}-${i}`} className="rounded-xl border border-slate-200 px-4 py-3">
-                      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                        <span className="text-sm font-semibold text-slate-900 break-words">{d.pharmacy_name}</span>
-                        <span className="font-mono text-xs text-slate-500">{formatDateTime(d.at)}</span>
-                      </div>
-                      <ul className="mt-1.5 text-xs text-slate-600 flex flex-col gap-0.5">
-                        {d.items.map((l) => (
-                          <li key={l.item_index} className="break-words">
-                            {drugName(l.item_index)}:{" "}
-                            {l.amount !== null ? formatQty(l.amount) : ""}
-                            {l.amount !== null && l.complete ? ", " : ""}
-                            {l.complete ? "given fully" : ""}
+                  {step === "confirm" && (
+                    <div className="mt-5 rounded-xl border border-[#f5a623]/30 bg-[#24262c] px-4 py-4" data-testid="confirm-panel">
+                      <p className="text-sm font-semibold text-white">Confirm what you are giving now</p>
+                      <ul className="mt-2 flex flex-col gap-1 text-sm text-gray-200">
+                        {lines.map((l) => (
+                          <li key={l.item.item_index} className="flex justify-between gap-3">
+                            <span className="min-w-0 break-words">{l.item.drug}</span>
+                            <span className="shrink-0 font-mono text-[#f5a623]">
+                              {l.amount !== null ? `give ${formatQty(l.amount)} (${formatQty(remaining(l.item))} left)` : "given fully"}
+                            </span>
                           </li>
                         ))}
                       </ul>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-
-            {/* Dispense */}
-            {open && (
-              <section className="px-5 sm:px-6 py-6 border-t border-slate-100 bg-slate-50/60 print:hidden">
-                <h3 className="text-sm font-semibold text-slate-900 mb-4">Dispense</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <label className="flex flex-col gap-1 text-sm" htmlFor="pharmacy-name">
-                    <span className="text-xs text-slate-500 font-medium">Pharmacy name (shown to the patient)</span>
-                    <input
-                      id="pharmacy-name"
-                      required
-                      minLength={2}
-                      maxLength={120}
-                      autoComplete="organization"
-                      disabled={step !== "edit"}
-                      value={pharmacyName}
-                      onChange={(e) => {
-                        resetSubmission();
-                        setPharmacyName(e.target.value);
-                      }}
-                      className="h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 disabled:bg-slate-100"
-                    />
-                  </label>
-                  <label className="flex flex-col gap-1 text-sm" htmlFor="pharmacist-name">
-                    <span className="text-xs text-slate-500 font-medium">Pharmacist (optional)</span>
-                    <input
-                      id="pharmacist-name"
-                      maxLength={120}
-                      autoComplete="name"
-                      disabled={step !== "edit"}
-                      value={pharmacistName}
-                      onChange={(e) => {
-                        resetSubmission();
-                        setPharmacistName(e.target.value);
-                      }}
-                      className="h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 disabled:bg-slate-100"
-                    />
-                  </label>
-                </div>
-
-                {step === "confirm" && (
-                  <div className="mt-5 rounded-xl border border-slate-300 bg-white px-4 py-4" data-testid="confirm-panel">
-                    <p className="text-sm font-semibold text-slate-900">Confirm what you are giving now</p>
-                    <ul className="mt-2 text-sm text-slate-700 flex flex-col gap-1">
-                      {lines.map((l) => (
-                        <li key={l.item.item_index} className="flex justify-between gap-3">
-                          <span className="break-words min-w-0">{l.item.drug}</span>
-                          <span className="font-mono shrink-0">
-                            {l.amount !== null ? `give ${formatQty(l.amount)} (${formatQty(remaining(l.item))} left)` : "given fully"}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                    <p className="mt-3 text-xs text-slate-500 break-words">
-                      Recorded as given at <span className="font-semibold text-slate-700">{pharmacyName.trim()}</span>
-                      {pharmacistName.trim() ? ` by ${pharmacistName.trim()}` : ""}. This cannot be undone.
-                    </p>
-                  </div>
-                )}
-
-                {formError && (
-                  <div
-                    role="alert"
-                    data-testid="dispense-error"
-                    className="mt-4 text-sm text-red-800 bg-red-50 border border-red-200 rounded-lg px-3 py-2"
-                  >
-                    {formError}
-                  </div>
-                )}
-
-                <div className="mt-5 flex flex-col gap-3">
-                  {step === "edit" ? (
-                    <button
-                      type="submit"
-                      className="w-full h-12 bg-slate-900 text-white rounded-xl font-semibold text-sm flex items-center justify-center gap-2 hover:bg-slate-800 active:scale-[0.99] transition-all"
-                    >
-                      <span className="material-symbols-outlined text-[18px]">medication</span>
-                      Review dispense
-                    </button>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        onClick={submit}
-                        disabled={sending}
-                        className="w-full h-12 bg-slate-900 text-white rounded-xl font-semibold text-sm flex items-center justify-center gap-2 hover:bg-slate-800 active:scale-[0.99] transition-all disabled:opacity-60"
-                      >
-                        <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                        {sending ? "Dispensing..." : canRetry ? "Try again" : "Confirm dispense"}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={sending}
-                        onClick={() => {
-                          resetSubmission();
-                          setStep("edit");
-                        }}
-                        className="w-full h-11 bg-white text-slate-800 border border-slate-300 rounded-xl font-medium text-sm flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors disabled:opacity-60"
-                      >
-                        Back
-                      </button>
-                    </>
+                      <p className="mt-3 break-words text-xs text-gray-400">
+                        Recorded as given at <span className="font-semibold text-gray-200">{pharmacyName.trim()}</span>
+                        {pharmacistName.trim() ? ` by ${pharmacistName.trim()}` : ""}. This cannot be undone.
+                      </p>
+                    </div>
                   )}
-                </div>
-              </section>
-            )}
-          </form>
 
-          <section className="px-5 sm:px-6 py-5 border-t border-slate-100 bg-slate-50/60 text-xs text-slate-500">
-            <p className="leading-relaxed">
-              <span className="font-semibold text-slate-700">Endod Health:</span> valid at any pharmacy until everything is
-              given, it expires ({formatDate(rx.expires_at)}), or the hospital withdraws it.
-            </p>
-            <p className="text-xs text-slate-400 mt-1 font-mono break-all">Rx {rx.rx_id}</p>
-          </section>
-        </div>
+                  {formError && (
+                    <div
+                      role="alert"
+                      data-testid="dispense-error"
+                      className="mt-4 rounded-lg border border-red-400/30 bg-red-500/15 px-3 py-2 text-sm text-red-100"
+                    >
+                      {formError}
+                    </div>
+                  )}
 
-        <div className="flex flex-col gap-3 print:hidden">
+                  <div className="mt-5 flex flex-col gap-3">
+                    {step === "edit" ? (
+                      <button
+                        type="submit"
+                        className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[#fbbd08] to-[#f59e0b] text-sm font-semibold text-black transition-all hover:brightness-105 active:scale-[0.99]"
+                      >
+                        Review dispense
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={submit}
+                          disabled={sending}
+                          className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[#fbbd08] to-[#f59e0b] text-sm font-semibold text-black transition-all hover:brightness-105 active:scale-[0.99] disabled:opacity-60"
+                        >
+                          {sending ? "Dispensing..." : canRetry ? "Try again" : "Confirm dispense"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={sending}
+                          onClick={() => {
+                            resetSubmission();
+                            setStep("edit");
+                          }}
+                          className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#24262c] text-sm font-medium text-gray-100 transition-colors hover:bg-[#2c2f37] disabled:opacity-60"
+                        >
+                          Back
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-gray-400">This prescription is not open for dispensing.</p>
+              )}
+            </form>
+          </div>
+        </section>
+
+        <section className="mb-6 rounded-2xl border border-white/10 bg-[#26282e]/90 p-4 shadow-lg backdrop-blur-md sm:p-6 print:border-slate-200 print:bg-white print:shadow-none">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-white print:text-slate-900">Medication Orders</h3>
+            {open && <span className="text-xs font-medium text-gray-400 print:hidden">Give now</span>}
+          </div>
+          <ol className="flex flex-col divide-y divide-white/10 print:divide-slate-200">
+            {rx.items.map((item, n) => {
+              const left = remaining(item);
+              const editable = open && item.status !== "given" && step === "edit";
+              const inputId = `give-${item.item_index}`;
+              return (
+                <li key={item.item_index} className="py-4 first:pt-0 last:pb-0" data-testid={`item-${item.item_index}`}>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <span className="mt-0.5 font-mono text-sm font-semibold text-[#f5a623]">{n + 1}</span>
+                      <div className="min-w-0">
+                        <h4 className="break-words text-sm font-semibold leading-snug text-white print:text-slate-900">{item.drug}</h4>
+                        {meta(item) && <div className="mt-0.5 break-words text-xs text-gray-400 print:text-slate-500">{meta(item)}</div>}
+                        {item.notes && <div className="mt-1 break-words text-xs italic text-gray-300 print:text-slate-600">{item.notes}</div>}
+                        <div
+                          className={`mt-1.5 text-xs font-medium ${item.status === "given" ? "text-emerald-300 print:text-emerald-700" : "text-gray-200 print:text-slate-700"}`}
+                          data-testid={`progress-${item.item_index}`}
+                        >
+                          {itemProgress(item)}
+                        </div>
+                      </div>
+                    </div>
+                    <span className="ml-7 max-w-full self-start break-words rounded-md border border-white/10 bg-[#24262c] px-2.5 py-1 font-mono text-xs font-semibold text-gray-100 sm:ml-0 print:border-slate-300 print:bg-white print:text-slate-900">
+                      Qty: {item.quantity_text || formatQty(item.quantity_total)}
+                    </span>
+                  </div>
+
+                  {editable && (
+                    <div className="ml-7 mt-3 print:hidden">
+                      {item.quantity_total !== null ? (
+                        <label htmlFor={inputId} className="flex items-center gap-2 text-sm text-gray-200">
+                          <span className="text-gray-300">Give now</span>
+                          <input
+                            id={inputId}
+                            type="number"
+                            inputMode="decimal"
+                            min={0}
+                            max={left ?? undefined}
+                            step="any"
+                            placeholder="0"
+                            value={amounts[item.item_index] ?? ""}
+                            onChange={(e) => {
+                              resetSubmission();
+                              setAmounts((a) => ({ ...a, [item.item_index]: e.target.value }));
+                            }}
+                            className="h-10 w-24 rounded-lg border border-white/10 bg-[#24262c] px-3 font-mono text-sm text-white focus:border-[#f5a623] focus:outline-none focus:ring-1 focus:ring-[#f5a623]"
+                          />
+                          <span className="text-xs text-gray-400">of {formatQty(left)} left</span>
+                        </label>
+                      ) : (
+                        <label htmlFor={inputId} className="flex cursor-pointer items-center gap-2 text-sm text-gray-200">
+                          <input
+                            id={inputId}
+                            type="checkbox"
+                            checked={!!fully[item.item_index]}
+                            onChange={(e) => {
+                              resetSubmission();
+                              setFully((f) => ({ ...f, [item.item_index]: e.target.checked }));
+                            }}
+                            className="h-5 w-5 accent-[#f5a623]"
+                          />
+                          <span className="text-gray-200">Given fully</span>
+                        </label>
+                      )}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+
+        <section className="mb-6 rounded-2xl border border-white/10 bg-[#26282e]/90 p-4 shadow-lg backdrop-blur-md sm:p-6 print:border-slate-200 print:bg-white print:shadow-none">
+          <h3 className="mb-4 text-sm font-semibold text-white print:text-slate-900">Dispense History</h3>
+          {rx.dispenses.length === 0 ? (
+            <p className="text-sm text-gray-400 print:text-slate-500" data-testid="history-empty">Nothing has been dispensed yet.</p>
+          ) : (
+            <ul className="flex flex-col gap-3" data-testid="history">
+              {rx.dispenses.map((d, i) => (
+                <li key={`${d.at}-${i}`} className="rounded-xl border border-white/10 bg-[#1f2126] px-4 py-3 print:border-slate-200 print:bg-white">
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                    <span className="break-words text-sm font-semibold text-white print:text-slate-900">{d.pharmacy_name}</span>
+                    <span className="font-mono text-xs text-gray-400 print:text-slate-500">{formatDateTime(d.at)}</span>
+                  </div>
+                  <ul className="mt-1.5 flex flex-col gap-0.5 text-xs text-gray-300 print:text-slate-600">
+                    {d.items.map((l) => (
+                      <li key={l.item_index} className="break-words">
+                        {drugName(l.item_index)}: {l.amount !== null ? formatQty(l.amount) : ""}
+                        {l.amount !== null && l.complete ? ", " : ""}
+                        {l.complete ? "given fully" : ""}
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="mb-6 rounded-2xl border border-white/10 bg-[#26282e]/90 px-5 py-5 text-xs text-gray-400 shadow-lg backdrop-blur-md print:border-slate-200 print:bg-white print:text-slate-500">
+          <p className="leading-relaxed">
+            <span className="font-semibold text-gray-200 print:text-slate-700">Endod Health:</span> valid at any pharmacy until everything is given, it expires ({formatDate(rx.expires_at)}), or the hospital withdraws it.
+          </p>
+          <p className="mt-1 break-all font-mono text-xs text-gray-500 print:text-slate-400">Rx {rx.rx_id}</p>
+        </section>
+
+        <div className="flex flex-col gap-3 print:hidden sm:flex-row">
           <button
             type="button"
             onClick={print}
-            className="w-full h-11 bg-white text-slate-800 border border-slate-300 rounded-xl font-medium text-sm flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors"
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#24262c] text-sm font-medium text-gray-100 transition-colors hover:bg-[#2c2f37]"
           >
-            <span className="material-symbols-outlined text-[18px] text-slate-500">print</span>
             Print prescription
           </button>
           <button
             type="button"
             onClick={newScan}
-            className="w-full h-11 bg-white text-slate-800 border border-slate-300 rounded-xl font-medium text-sm flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors"
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#24262c] text-sm font-medium text-gray-100 transition-colors hover:bg-[#2c2f37]"
           >
-            <span className="material-symbols-outlined text-[18px] text-slate-500">qr_code_scanner</span>
             Scan another prescription
           </button>
         </div>
