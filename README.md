@@ -17,14 +17,10 @@ platform is in [docs/endod-api.md](docs/endod-api.md) (section 5 is this site).
 
 ```bash
 npm ci
-npm run dev:mock      # mock platform on :8787 + next dev on :3000
+PLATFORM_API_URL=<platform-internal-api-url> PHARMACY_API_KEY=<pharmacy-api-key> npm run dev
 ```
 
-`dev:mock` starts `scripts/mock-platform.mjs` (an in-memory version of the
-platform API with sample prescriptions) and points the site at it. It prints
-the sample `/rx/<token>` links and codes on start. The open sample uses code
-`482913` with phone `0911223344`; expired, completed and retracted samples are
-included too. Pass Next options after `--`, e.g. `npm run dev:mock -- -p 3010`.
+Set `PLATFORM_API_URL` and `PHARMACY_API_KEY` to point the site at the Endod platform API (see [Environment](#environment)). Browsers call this site’s `/api/lookup` and `/api/dispense` routes, which forward to the platform server-side.
 
 The camera needs HTTPS or `localhost`. On a phone over the LAN, use Upload QR or
 the SMS code, or put the dev server behind HTTPS.
@@ -41,19 +37,13 @@ the SMS code, or put the dev server behind HTTPS.
 
 Do not prefix any of these with `NEXT_PUBLIC_`.
 
-## Checks and tests
+## Checks
 
 ```bash
 npx eslint .
 npx tsc --noEmit
 npm run build         # standalone output in .next/standalone
-npm test              # Playwright, against the build and the mock platform
 ```
-
-The tests use the installed Google Chrome (`channel: "chrome"`); no Playwright
-browser download is needed. They start the mock on :8788 and the standalone
-server on :3011 (`E2E_MOCK_PORT`, `E2E_PORT` to change). CI
-(`.github/workflows/ci.yml`) runs lint, type check, build and the tests.
 
 ## Deploying
 

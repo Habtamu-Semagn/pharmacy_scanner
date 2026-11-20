@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-// Code + phone lookups land here. The code and phone stay out of the URL:
+// Code lookups land here. The code and phone stay out of the URL:
 // the scanner page keeps them in this tab's sessionStorage.
 export default function RxCodePage() {
   return <PrescriptionScreen token={null} />;

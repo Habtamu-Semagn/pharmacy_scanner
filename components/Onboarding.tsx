@@ -73,7 +73,7 @@ export default function OnboardingScreen() {
           <div className="mx-auto max-w-2xl">
             <h1 className="mb-3 text-[34px] font-bold tracking-tight text-gray-900 sm:text-[40px]">Get Started</h1>
             <p className="mx-auto max-w-xl text-[15px] font-medium leading-[1.7] text-gray-500 sm:text-base">
-              Scan a patient’s Endod prescription QR code, or enter the 6-digit SMS code and phone number to view and record what you dispense.
+              Scan a patient’s Endod prescription QR code, or enter the 6-digit SMS code to view and record what you dispense.
             </p>
           </div>
           <ContinueDock />

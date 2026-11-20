@@ -54,12 +54,14 @@ export default function ScanPage() {
   const [status, setStatus] = useState<ScanStatus>("idle");
   const [message, setMessage] = useState<string>("Ready to scan");
   const [error, setError] = useState<string | null>(null);
+  const statusRef = useRef<ScanStatus>("idle");
 
   const [otp, setOtp] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [codeError, setCodeError] = useState<string | null>(null);
 
-  const stopScanner = useCallback(() => {
+
+  const stopScanner = useCallback((opts?: { keepStatus?: boolean }) => {
     sessionRef.current += 1;
     try {
       controlsRef.current?.stop();
@@ -75,17 +77,28 @@ export default function ScanPage() {
     }
     setTorchOn(false);
     setTorchSupported(false);
+    if (!opts?.keepStatus) {
+      setStatus((s) => {
+        if (s === "scanning" || s === "starting") {
+          statusRef.current = "idle";
+          return "idle";
+        }
+        return s;
+      });
+    }
   }, []);
 
   const handleScanText = useCallback(
     (text: string) => {
       const token = tokenFromScan(text, window.location.origin);
       if (!token) {
+        statusRef.current = "rejected";
         setStatus("rejected");
         setMessage(NOT_ENDOD);
         setError(`${NOT_ENDOD}. Only the QR code from the patient's Endod app can be used here.`);
         return;
       }
+      statusRef.current = "found";
       setStatus("found");
       setMessage("Endod prescription found");
       setError(null);
@@ -96,77 +109,159 @@ export default function ScanPage() {
 
   const startScanner = useCallback(
     async (targetDeviceId?: string) => {
-      stopScanner();
+      if (typeof window === "undefined") return;
+      sessionRef.current += 1;
       const session = sessionRef.current;
+
+      try {
+        controlsRef.current?.stop();
+      } catch {
+        /* ignore */
+      }
+      controlsRef.current = null;
+
+      const video = videoRef.current;
+      if (video) {
+        const src = video.srcObject as MediaStream | null;
+        src?.getTracks().forEach((t) => t.stop());
+        video.srcObject = null;
+      }
+
+      setTorchOn(false);
+      setTorchSupported(false);
       setError(null);
+      statusRef.current = "starting";
       setStatus("starting");
       setMessage("Starting camera...");
-      const video = videoRef.current;
-      if (!video) return;
-      if (!navigator.mediaDevices?.getUserMedia) {
+
+      if (!video) {
+        statusRef.current = "error";
         setStatus("error");
         setMessage("Camera unavailable");
-        setError("This browser cannot use the camera here (it needs HTTPS). Use Upload QR or the SMS code.");
+        setError("The camera view could not be started. Reload the page and try again.");
         return;
       }
+
+      if (!window.isSecureContext) {
+        statusRef.current = "error";
+        setStatus("error");
+        setMessage("Camera unavailable");
+        setError("Camera access needs HTTPS or localhost. Use Upload QR or the SMS code on this device.");
+        return;
+      }
+
+      if (!navigator.mediaDevices?.getUserMedia) {
+        statusRef.current = "error";
+        setStatus("error");
+        setMessage("Camera unavailable");
+        setError("This browser cannot use the camera here. Use Upload QR or the SMS code.");
+        return;
+      }
+
+      let stream: MediaStream | null = null;
       try {
+        const constraints: MediaStreamConstraints = targetDeviceId
+          ? { video: { deviceId: { exact: targetDeviceId } }, audio: false }
+          : { video: { facingMode: { ideal: "environment" } }, audio: false };
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        if (session !== sessionRef.current) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+
+        video.srcObject = stream;
+        video.setAttribute("playsinline", "true");
+        video.muted = true;
+        await video.play().catch(() => {});
+
         readerRef.current ??= new BrowserQRCodeReader();
         const onResult = (result: Result | undefined) => {
           if (!result || session !== sessionRef.current) return;
-          stopScanner();
+          try {
+            controlsRef.current?.stop();
+          } catch {
+            /* ignore */
+          }
+          controlsRef.current = null;
+          const s = video.srcObject as MediaStream | null;
+          s?.getTracks().forEach((t) => t.stop());
+          video.srcObject = null;
+          setTorchOn(false);
+          setTorchSupported(false);
           handleScanText(result.getText());
         };
-        const controls = targetDeviceId
-          ? await readerRef.current.decodeFromVideoDevice(targetDeviceId, video, onResult)
-          : await readerRef.current.decodeFromConstraints(
-              { video: { facingMode: { ideal: "environment" } } },
-              video,
-              onResult,
-            );
+
+        const controls = await readerRef.current.decodeFromStream(stream, video, onResult);
         if (session !== sessionRef.current) {
           controls.stop();
+          stream.getTracks().forEach((t) => t.stop());
           return;
         }
+
         controlsRef.current = controls;
+        statusRef.current = "scanning";
         setStatus("scanning");
         setMessage("Scanning for QR code...");
 
-        const track = (video.srcObject as MediaStream | null)?.getVideoTracks()?.[0];
+        const track = stream.getVideoTracks()?.[0];
         setTorchSupported(
           !!track && (track.getCapabilities?.() as { torch?: boolean } | undefined)?.torch === true,
         );
         setDeviceId(track?.getSettings().deviceId ?? targetDeviceId);
-        const all = await navigator.mediaDevices.enumerateDevices();
-        if (session === sessionRef.current) setDevices(all.filter((d) => d.kind === "videoinput"));
+        try {
+          const all = await navigator.mediaDevices.enumerateDevices();
+          if (session === sessionRef.current) setDevices(all.filter((d) => d.kind === "videoinput"));
+        } catch {
+          /* ignore device enumeration errors */
+        }
       } catch (e) {
-        if (session !== sessionRef.current) return;
-        stopScanner();
+        if (session !== sessionRef.current) {
+          stream?.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        try {
+          controlsRef.current?.stop();
+        } catch {
+          /* ignore */
+        }
+        controlsRef.current = null;
+        stream?.getTracks().forEach((t) => t.stop());
+        const current = video.srcObject as MediaStream | null;
+        current?.getTracks().forEach((t) => t.stop());
+        video.srcObject = null;
+        statusRef.current = "error";
         setStatus("error");
         setMessage("Camera unavailable");
         setError(cameraErrorMessage(e));
       }
     },
-    [stopScanner, handleScanText],
+    [handleScanText],
   );
 
   useEffect(() => {
-    const timer = setTimeout(() => void startScanner(), 0);
+    const timer = window.setTimeout(() => {
+      if (!document.hidden) void startScanner();
+    }, 0);
     const onVisibility = () => {
+      const s = statusRef.current;
       if (document.hidden) {
-        if (controlsRef.current) {
+        if (controlsRef.current || s === "starting" || s === "scanning") {
           pausedByVisibilityRef.current = true;
           stopScanner();
+          statusRef.current = "idle";
           setStatus("idle");
           setMessage("Camera paused");
         }
       } else if (pausedByVisibilityRef.current) {
         pausedByVisibilityRef.current = false;
         void startScanner();
+      } else if (!controlsRef.current && s !== "scanning" && s !== "starting" && s !== "found") {
+        void startScanner();
       }
     };
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
-      clearTimeout(timer);
+      window.clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisibility);
       pausedByVisibilityRef.current = false;
       stopScanner();
@@ -176,7 +271,7 @@ export default function ScanPage() {
   const handleSwitchCamera = async () => {
     if (devices.length < 2) return;
     const idx = devices.findIndex((d) => d.deviceId === deviceId);
-    const next = devices[(idx + 1) % devices.length];
+    const next = devices[(idx + 1 + devices.length) % devices.length];
     await startScanner(next.deviceId);
   };
 
@@ -200,6 +295,7 @@ export default function ScanPage() {
     if (!file) return;
     stopScanner();
     setError(null);
+    statusRef.current = "starting";
     setStatus("starting");
     setMessage("Decoding image...");
     const url = URL.createObjectURL(file);
@@ -214,6 +310,7 @@ export default function ScanPage() {
       const result = await readerRef.current.decodeFromImageElement(img);
       handleScanText(result.getText());
     } catch {
+      statusRef.current = "error";
       setStatus("error");
       setMessage("No QR code found");
       setError("No QR code was found in that image. Try a sharper photo.");
@@ -256,7 +353,6 @@ export default function ScanPage() {
     void startScanner(deviceId);
   };
 
-  const otpChars = otp.split("");
   const live = status === "scanning" || status === "starting";
   const cameraOn = status === "scanning" || status === "starting" || status === "found";
 
@@ -273,44 +369,44 @@ export default function ScanPage() {
         <div className="absolute inset-0 bg-black/20" />
 
         <header className="relative z-20 flex items-center justify-between px-6 pt-10 sm:pt-12 pb-4">
-          <button
-            aria-label="Open Photos Gallery"
-            className="p-2 text-white/90 hover:text-white transition-opacity active:opacity-70"
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <svg className="h-7 w-7 drop-shadow" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
-              <rect height="18" rx="3" ry="3" width="18" x="3" y="3" />
-              <circle cx="8.5" cy="8.5" r="1.5" />
-              <polyline points="21 15 16 10 5 21" />
-            </svg>
-          </button>
+              <button
+                aria-label="Upload QR image"
+                className="p-2 text-white/90 hover:text-white transition-opacity active:opacity-70"
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <svg className="h-7 w-7 drop-shadow" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect height="18" rx="3" ry="3" width="18" x="3" y="3" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <polyline points="21 15 16 10 5 21" />
+                </svg>
+              </button>
 
-          <button
-            aria-label="Toggle Flashlight"
-            className={`p-2 transition-transform active:scale-95 ${torchSupported ? "text-white/95 hover:text-white" : "text-white/30 cursor-not-allowed"}`}
-            type="button"
-            onClick={() => { if (torchSupported) void handleTorch(); }}
-            disabled={!torchSupported}
-          >
-            <svg className="h-7 w-7 drop-shadow" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M13 2L4 13.5H11L10 22L20 10.5H13L13 2Z" fill={torchOn ? "#FDB714" : "white"} stroke={torchOn ? "#FDB714" : "white"} strokeLinejoin="round" strokeWidth="1.2" />
-            </svg>
-          </button>
+              <button
+                aria-label="Toggle flashlight"
+                className={`p-2 transition-transform active:scale-95 ${torchSupported ? "text-white/95 hover:text-white" : "text-white/30 cursor-not-allowed"}`}
+                type="button"
+                onClick={() => { if (torchSupported) void handleTorch(); }}
+                disabled={!torchSupported}
+              >
+                <svg className="h-7 w-7 drop-shadow" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M13 2L4 13.5H11L10 22L20 10.5H13L13 2Z" fill={torchOn ? "#FDB714" : "white"} stroke={torchOn ? "#FDB714" : "white"} strokeLinejoin="round" strokeWidth="1.2" />
+                </svg>
+              </button>
 
-          <button
-            aria-label="Switch Camera"
-            className={`p-2 transition-opacity active:opacity-70 ${devices.length > 1 && live ? "text-white/90 hover:text-white" : "text-white/30 cursor-not-allowed"}`}
-            type="button"
-            onClick={() => { if (devices.length > 1 && live) void handleSwitchCamera(); }}
-            disabled={!(devices.length > 1 && live)}
-          >
-            <svg className="h-7 w-7 drop-shadow" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M20 10c0-4.418-3.582-8-8-8s-8 3.582-8 8c0 1.5.414 2.9 1.135 4.1L3 16h5v-5L6.2 12.8A5.96 5.96 0 0 1 6 10c0-3.314 2.686-6 6-6s6 2.686 6 6-2.686 6-6 6c-.95 0-1.843-.223-2.637-.621L7.9 16.9A7.95 7.95 0 0 0 12 18c4.418 0 8-3.582 8-8z" />
-              <path d="M10 8l-2 2 2 2" />
-              <path d="M14 16l2-2-2-2" />
-            </svg>
-          </button>
+              <button
+                aria-label="Switch camera"
+                className={`p-2 transition-opacity active:opacity-70 ${devices.length > 1 && live ? "text-white/90 hover:text-white" : "text-white/30 cursor-not-allowed"}`}
+                type="button"
+                onClick={() => { if (devices.length > 1 && live) void handleSwitchCamera(); }}
+                disabled={!(devices.length > 1 && live)}
+              >
+                <svg className="h-7 w-7 drop-shadow" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M20 10c0-4.418-3.582-8-8-8s-8 3.582-8 8c0 1.5.414 2.9 1.135 4.1L3 16h5v-5L6.2 12.8A5.96 5.96 0 0 1 6 10c0-3.314 2.686-6 6-6s6 2.686 6 6-2.686 6-6 6c-.95 0-1.843-.223-2.637-.621L7.9 16.9A7.95 7.95 0 0 0 12 18c4.418 0 8-3.582 8-8z" />
+                  <path d="M10 8l-2 2 2 2" />
+                  <path d="M14 16l2-2-2-2" />
+                </svg>
+              </button>
         </header>
 
         <input
@@ -335,7 +431,9 @@ export default function ScanPage() {
                         ? NOT_ENDOD
                         : status === "error"
                           ? message
-                          : "Camera off"}
+                          : status === "idle" && message === "Camera paused"
+                            ? "Camera paused"
+                            : "Camera off"}
                   </span>
                 </div>
               )}
@@ -364,7 +462,7 @@ export default function ScanPage() {
                   onClick={resetScan}
                   className="inline-flex items-center justify-center rounded-xl bg-[#FDB714] px-4 py-2 text-sm font-semibold text-[#18191B] hover:bg-[#eab015] transition-colors"
                 >
-                  Rescan
+                  {status === "idle" || status === "error" || status === "rejected" ? "Start camera" : "Rescan"}
                 </button>
               )}
             </div>
@@ -381,16 +479,19 @@ export default function ScanPage() {
         </section>
 
         <footer className="relative z-20 w-full pb-6 pt-2 sm:pb-8">
-          <div className="relative mx-auto flex h-24 w-full max-w-3xl items-center justify-between px-10 sm:px-16">
+          <div className="relative mx-auto flex h-24 w-full max-w-3xl items-center justify-center px-10 sm:px-16">
             <svg className="absolute inset-0 -z-10 h-full w-full" fill="none" preserveAspectRatio="none" viewBox="0 0 390 96" aria-hidden="true">
               <path d="M0,28 C70,28 105,28 128,28 C145,28 155,72 195,72 C235,72 245,28 262,28 C285,28 320,28 390,28 L390,96 L0,96 Z" fill="#161719" />
             </svg>
 
             <button
               aria-label="Go to code entry"
-              className="mt-3 flex flex-col items-center justify-center text-white/80 transition-opacity hover:text-white active:opacity-70"
+              className="absolute left-10 mt-3 flex flex-col items-center justify-center text-white/80 transition-opacity hover:text-white active:opacity-70 sm:left-16"
               type="button"
-              onClick={() => document.getElementById("code-entry")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+              onClick={() => {
+                document.getElementById("otp-input-field")?.focus();
+                document.getElementById("code-entry")?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
             >
               <svg className="h-6 w-6 stroke-current" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" viewBox="0 0 24 24" aria-hidden="true">
                 <rect height="7" rx="1.5" width="7" x="3" y="3" />
@@ -405,10 +506,10 @@ export default function ScanPage() {
             <div className="relative -top-2 flex items-center justify-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#18191B] p-1.5 shadow-lg">
                 <button
-                  aria-label="Scan QR Code"
+                  aria-label={live ? "Scanning QR code" : "Start scanner"}
                   className="flex h-full w-full items-center justify-center rounded-full bg-[#FDB714] shadow-md transition-all hover:bg-[#eab015] active:scale-95"
                   type="button"
-                  onClick={() => { if (!live) resetScan(); }}
+                  onClick={() => void startScanner(deviceId)}
                 >
                   <svg className="h-7 w-7 text-black stroke-current" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.6" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M4 8V5a1 1 0 0 1 1-1h3" />
@@ -420,19 +521,6 @@ export default function ScanPage() {
                 </button>
               </div>
             </div>
-
-            <button
-              aria-label="Scan History"
-              className="mt-3 flex flex-col items-center justify-center text-white/40 cursor-default"
-              type="button"
-              disabled
-            >
-              <svg className="h-6 w-6 stroke-current" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M3 12a9 9 0 1 0 2.64-6.36L3 8" />
-                <path d="M3 3v5h5" />
-                <path d="M12 7v5l3 2" />
-              </svg>
-            </button>
           </div>
         </footer>
       </main>
@@ -456,47 +544,31 @@ export default function ScanPage() {
                   Prescription Code
                 </label>
                 <p className="mt-1 text-sm text-white/60">
-                  The 6-digit code is in the patient&apos;s code from Endod
+                  Enter the 6-digit code from the patient&apos;s SMS.
                 </p>
               </div>
               <MessageSquare size={24} className="mt-1 text-[#FDB714]" />
             </div>
 
-            <input
-              aria-label="Enter 6 digit prescription code"
-              id="otp-input-field"
-              name="code"
-              type="tel"
-              inputMode="numeric"
-              autoComplete="off"
-              maxLength={6}
-              value={otp}
-              onChange={(e) => handleOtpChange(e.target.value)}
-              className="sr-only"
-            />
-            <div
-              className="mx-auto my-5 grid max-w-sm cursor-pointer grid-cols-6 gap-2 sm:gap-3"
-              onClick={() => document.getElementById("otp-input-field")?.focus()}
-              aria-hidden="true"
-            >
-              {Array.from({ length: 6 }).map((_, i) => {
-                const ch = otpChars[i];
-                const isCursor = i === otpChars.length;
-                return (
-                  <div
-                    key={i}
-                    className={`flex h-14 items-center justify-center rounded-xl text-xl font-semibold shadow-inner transition-all ${
-                      ch !== undefined
-                        ? "bg-[#24262a] text-white border border-[#FDB714]/30"
-                        : isCursor
-                          ? "bg-[#24262a] text-[#FDB714] border border-[#FDB714]/60"
-                          : "bg-[#1f2023] text-white/30 border border-white/10"
-                    }`}
-                  >
-                    {ch !== undefined ? ch : isCursor ? <span className="h-6 w-0.5 animate-pulse bg-[#FDB714]" /> : <span className="h-2 w-2 rounded-full bg-white/20" />}
-                  </div>
-                );
-              })}
+            <div className="mx-auto my-5 max-w-sm">
+              <input
+                aria-label="Enter 6 digit prescription code"
+                id="otp-input-field"
+                name="code"
+                type="tel"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                enterKeyHint="done"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                pattern="[0-9]*"
+                maxLength={6}
+                value={otp}
+                onChange={(e) => handleOtpChange(e.target.value)}
+                placeholder="000000"
+                className="h-14 w-full rounded-xl border border-white/10 bg-[#24262a] px-4 text-center text-2xl font-semibold tracking-[0.4em] text-white placeholder:text-white/20 focus:border-[#FDB714]/60 focus:outline-none focus:ring-1 focus:ring-[#FDB714]/60"
+              />
             </div>
 
             {codeError && (
