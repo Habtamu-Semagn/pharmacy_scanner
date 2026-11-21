@@ -30,10 +30,10 @@ function cameraErrorMessage(e: unknown): string {
 function ScanCorners() {
   return (
     <>
-      <div className="pointer-events-none absolute -top-3.5 -left-3.5 h-11 w-11 rounded-tl-[16px] border-t-[8px] border-l-[8px] border-[#FDB714]" />
-      <div className="pointer-events-none absolute -top-3.5 -right-3.5 h-11 w-11 rounded-tr-[16px] border-t-[8px] border-r-[8px] border-[#FDB714]" />
-      <div className="pointer-events-none absolute -bottom-3.5 -left-3.5 h-11 w-11 rounded-bl-[16px] border-b-[8px] border-l-[8px] border-[#FDB714]" />
-      <div className="pointer-events-none absolute -bottom-3.5 -right-3.5 h-11 w-11 rounded-br-[16px] border-b-[8px] border-r-[8px] border-[#FDB714]" />
+      <div className="pointer-events-none absolute -top-3.5 -left-3.5 h-11 w-11 rounded-tl-[16px] border-t-[8px] border-l-[8px] border-primary" />
+      <div className="pointer-events-none absolute -top-3.5 -right-3.5 h-11 w-11 rounded-tr-[16px] border-t-[8px] border-r-[8px] border-primary" />
+      <div className="pointer-events-none absolute -bottom-3.5 -left-3.5 h-11 w-11 rounded-bl-[16px] border-b-[8px] border-l-[8px] border-primary" />
+      <div className="pointer-events-none absolute -bottom-3.5 -right-3.5 h-11 w-11 rounded-br-[16px] border-b-[8px] border-r-[8px] border-primary" />
     </>
   );
 }
@@ -357,7 +357,7 @@ export default function ScanPage() {
   const cameraOn = status === "scanning" || status === "starting" || status === "found";
 
   return (
-    <div className="min-h-dvh bg-[#0d0e10] text-white flex flex-col">
+    <div className="min-h-dvh bg-accent-deep text-on-dark flex flex-col">
       <main className="relative flex min-h-[100dvh] w-full flex-col overflow-hidden camera-feed-fallback">
         <video
           ref={videoRef}
@@ -366,12 +366,12 @@ export default function ScanPage() {
           playsInline
           autoPlay
         />
-        <div className="absolute inset-0 bg-black/20" />
+        <div className="absolute inset-0 bg-accent-deep/30" />
 
         <header className="relative z-20 flex items-center justify-between px-6 pt-10 sm:pt-12 pb-4">
               <button
                 aria-label="Upload QR image"
-                className="p-2 text-white/90 hover:text-white transition-opacity active:opacity-70"
+                className="p-2 text-on-dark hover:text-bg transition-opacity active:opacity-70"
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
               >
@@ -384,19 +384,19 @@ export default function ScanPage() {
 
               <button
                 aria-label="Toggle flashlight"
-                className={`p-2 transition-transform active:scale-95 ${torchSupported ? "text-white/95 hover:text-white" : "text-white/30 cursor-not-allowed"}`}
+                className={`p-2 transition-transform active:scale-95 ${torchSupported ? "text-on-dark hover:text-bg" : "text-on-dark/30 cursor-not-allowed"}`}
                 type="button"
                 onClick={() => { if (torchSupported) void handleTorch(); }}
                 disabled={!torchSupported}
               >
                 <svg className="h-7 w-7 drop-shadow" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M13 2L4 13.5H11L10 22L20 10.5H13L13 2Z" fill={torchOn ? "#FDB714" : "white"} stroke={torchOn ? "#FDB714" : "white"} strokeLinejoin="round" strokeWidth="1.2" />
+                  <path d="M13 2L4 13.5H11L10 22L20 10.5H13L13 2Z" fill={torchOn ? "#5C5752" : "#FBF9F6"} stroke={torchOn ? "#5C5752" : "#FBF9F6"} strokeLinejoin="round" strokeWidth="1.2" />
                 </svg>
               </button>
 
               <button
                 aria-label="Switch camera"
-                className={`p-2 transition-opacity active:opacity-70 ${devices.length > 1 && live ? "text-white/90 hover:text-white" : "text-white/30 cursor-not-allowed"}`}
+                className={`p-2 transition-opacity active:opacity-70 ${devices.length > 1 && live ? "text-on-dark hover:text-bg" : "text-on-dark/30 cursor-not-allowed"}`}
                 type="button"
                 onClick={() => { if (devices.length > 1 && live) void handleSwitchCamera(); }}
                 disabled={!(devices.length > 1 && live)}
@@ -421,10 +421,10 @@ export default function ScanPage() {
         <section aria-label="QR Code Scanner Viewfinder" className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 pb-8 pt-2">
           <div className="relative flex h-[240px] w-[240px] items-center justify-center sm:h-[280px] sm:w-[280px]">
             <ScanCorners />
-            <div className="relative h-[214px] w-[214px] overflow-hidden rounded-2xl border border-white/10 bg-black/25 backdrop-blur-[1px] sm:h-[250px] sm:w-[250px]">
+            <div className="relative h-[214px] w-[214px] overflow-hidden rounded-2xl border border-on-dark/20 bg-accent-deep/40 backdrop-blur-[1px] sm:h-[250px] sm:w-[250px]">
               {!live && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/45 px-4 text-center">
-                  <span className="text-sm font-medium text-white/90">
+                <div className="absolute inset-0 flex items-center justify-center bg-accent-deep/60 px-4 text-center">
+                  <span className="text-sm font-medium text-bg/90">
                     {status === "found"
                       ? "Opening prescription..."
                       : status === "rejected"
@@ -437,22 +437,22 @@ export default function ScanPage() {
                   </span>
                 </div>
               )}
-              <div className="absolute top-4 left-4 h-3 w-3 rounded-full bg-[#FDB714] shadow-sm" />
+              <div className="absolute top-4 left-4 h-3 w-3 rounded-full bg-primary shadow-sm" />
             </div>
             {status === "scanning" && (
-              <div className="laser-beam pointer-events-none absolute inset-x-[-14px] z-20 h-[3px] rounded-full bg-[#FDB714]" />
+              <div className="laser-beam pointer-events-none absolute inset-x-[-14px] z-20 h-[3px] rounded-full bg-primary" />
             )}
           </div>
 
-          <div className="mt-8 w-full max-w-xl rounded-2xl border border-white/10 bg-black/35 px-4 py-3 backdrop-blur-md">
+          <div className="mt-8 w-full max-w-xl rounded-2xl border border-on-dark/20 bg-accent-deep/60 px-4 py-3 backdrop-blur-md">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-2 text-white" role="status" aria-live="polite">
+              <div className="flex items-center gap-2 text-bg" role="status" aria-live="polite">
                 {status === "found" ? (
-                  <CheckCircle size={18} className="text-[#FDB714]" />
+                  <CheckCircle size={18} className="text-primary" />
                 ) : status === "error" || status === "rejected" ? (
-                  <AlertCircle size={18} className="text-[#FDB714]" />
+                  <AlertCircle size={18} className="text-primary" />
                 ) : (
-                  <Crosshair size={18} className="text-[#FDB714]" />
+                  <Crosshair size={18} className="text-primary" />
                 )}
                 <span className="text-sm font-medium" data-testid="scan-message">{message}</span>
               </div>
@@ -460,7 +460,7 @@ export default function ScanPage() {
                 <button
                   type="button"
                   onClick={resetScan}
-                  className="inline-flex items-center justify-center rounded-xl bg-[#FDB714] px-4 py-2 text-sm font-semibold text-[#18191B] hover:bg-[#eab015] transition-colors"
+                  className="inline-flex items-center justify-center rounded-xl bg-surface px-4 py-2 text-sm font-semibold text-heading hover:brightness-95 transition-colors"
                 >
                   {status === "idle" || status === "error" || status === "rejected" ? "Start camera" : "Rescan"}
                 </button>
@@ -470,7 +470,7 @@ export default function ScanPage() {
               <div
                 role="alert"
                 data-testid="scan-error"
-                className="mt-3 rounded-xl border border-red-400/30 bg-red-500/15 px-3 py-2 text-sm text-red-50"
+                className="mt-3 rounded-xl border border-danger/40 bg-danger-soft/20 px-3 py-2 text-sm text-danger-soft"
               >
                 {error}
               </div>
@@ -481,12 +481,12 @@ export default function ScanPage() {
         <footer className="relative z-20 w-full pb-6 pt-2 sm:pb-8">
           <div className="relative mx-auto flex h-24 w-full max-w-3xl items-center justify-center px-10 sm:px-16">
             <svg className="absolute inset-0 -z-10 h-full w-full" fill="none" preserveAspectRatio="none" viewBox="0 0 390 96" aria-hidden="true">
-              <path d="M0,28 C70,28 105,28 128,28 C145,28 155,72 195,72 C235,72 245,28 262,28 C285,28 320,28 390,28 L390,96 L0,96 Z" fill="#161719" />
+              <path d="M0,28 C70,28 105,28 128,28 C145,28 155,72 195,72 C235,72 245,28 262,28 C285,28 320,28 390,28 L390,96 L0,96 Z" fill="#2C2322" />
             </svg>
 
             <button
               aria-label="Go to code entry"
-              className="absolute left-10 mt-3 flex flex-col items-center justify-center text-white/80 transition-opacity hover:text-white active:opacity-70 sm:left-16"
+              className="absolute left-10 mt-3 flex flex-col items-center justify-center text-on-dark transition-opacity hover:text-bg active:opacity-70 sm:left-16"
               type="button"
               onClick={() => {
                 document.getElementById("otp-input-field")?.focus();
@@ -504,14 +504,14 @@ export default function ScanPage() {
             </button>
 
             <div className="relative -top-2 flex items-center justify-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#18191B] p-1.5 shadow-lg">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent-deep p-1.5 shadow-lg">
                 <button
                   aria-label={live ? "Scanning QR code" : "Start scanner"}
-                  className="flex h-full w-full items-center justify-center rounded-full bg-[#FDB714] shadow-md transition-all hover:bg-[#eab015] active:scale-95"
+                  className="flex h-full w-full items-center justify-center rounded-full bg-surface shadow-md transition-all hover:brightness-95 active:scale-95"
                   type="button"
                   onClick={() => void startScanner(deviceId)}
                 >
-                  <svg className="h-7 w-7 text-black stroke-current" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.6" viewBox="0 0 24 24" aria-hidden="true">
+                  <svg className="h-7 w-7 text-heading stroke-current" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.6" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M4 8V5a1 1 0 0 1 1-1h3" />
                     <path d="M16 4h3a1 1 0 0 1 1 1v3" />
                     <path d="M4 16v3a1 1 0 0 0 1 1h3" />
@@ -525,29 +525,29 @@ export default function ScanPage() {
         </footer>
       </main>
 
-      <section id="code-entry" className="bg-[#0f1013] px-4 py-8 sm:px-6 sm:py-10 border-t border-white/10">
+      <section id="code-entry" className="bg-accent-deep px-4 py-8 sm:px-6 sm:py-10 border-t border-on-dark/20">
         <div className="mx-auto w-full max-w-2xl">
           <div className="flex items-center justify-center my-1 mb-6">
-            <div className="h-[1px] flex-1 bg-white/15"></div>
-            <span className="px-4 text-xs font-semibold tracking-[0.2em] text-white/60 uppercase">Enter Code</span>
-            <div className="h-[1px] flex-1 bg-white/15"></div>
+            <div className="h-[1px] flex-1 bg-on-dark/20"></div>
+            <span className="px-4 text-xs font-semibold tracking-[0.2em] text-on-dark uppercase">Enter Code</span>
+            <div className="h-[1px] flex-1 bg-on-dark/20"></div>
           </div>
 
           <form
             onSubmit={handleVerify}
             noValidate
-            className="mx-auto w-full max-w-xl rounded-2xl border border-white/10 bg-[#18191B] p-5 sm:p-6 shadow-xl"
+            className="mx-auto w-full max-w-xl rounded-2xl border border-on-dark/20 bg-accent p-5 sm:p-6 shadow-xl"
           >
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
-                <label className="block text-lg font-semibold text-white" htmlFor="otp-input-field">
+                <label className="block text-lg font-semibold text-bg" htmlFor="otp-input-field">
                   Prescription Code
                 </label>
-                <p className="mt-1 text-sm text-white/60">
+                <p className="mt-1 text-sm text-on-dark">
                   Enter the 6-digit code from the patient&apos;s SMS.
                 </p>
               </div>
-              <MessageSquare size={24} className="mt-1 text-[#FDB714]" />
+              <MessageSquare size={24} className="mt-1 text-primary" />
             </div>
 
             <div className="mx-auto my-5 max-w-sm">
@@ -567,7 +567,7 @@ export default function ScanPage() {
                 value={otp}
                 onChange={(e) => handleOtpChange(e.target.value)}
                 placeholder="000000"
-                className="h-14 w-full rounded-xl border border-white/10 bg-[#24262a] px-4 text-center text-2xl font-semibold tracking-[0.4em] text-white placeholder:text-white/20 focus:border-[#FDB714]/60 focus:outline-none focus:ring-1 focus:ring-[#FDB714]/60"
+                className="h-14 w-full rounded-xl border border-on-dark/20 bg-accent-deep px-4 text-center text-2xl font-semibold tracking-[0.4em] text-bg placeholder:text-on-dark/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
 
@@ -575,7 +575,7 @@ export default function ScanPage() {
               <div
                 role="alert"
                 data-testid="code-error"
-                className="mx-auto mt-2 max-w-sm rounded-lg border border-red-400/30 bg-red-500/15 px-3 py-2 text-sm text-red-50"
+                className="mx-auto mt-2 max-w-sm rounded-lg border border-danger/40 bg-danger-soft/20 px-3 py-2 text-sm text-danger-soft"
               >
                 {codeError}
               </div>
@@ -585,7 +585,7 @@ export default function ScanPage() {
               <button
                 type="submit"
                 disabled={verifying}
-                className="mx-auto flex h-12 w-fit items-center justify-center gap-2 rounded-xl bg-[#FDB714] px-10 text-base font-semibold text-[#18191B] shadow-sm transition-all hover:bg-[#eab015] active:scale-[0.98] disabled:opacity-60"
+                className="mx-auto flex h-12 w-fit items-center justify-center gap-2 rounded-xl bg-surface px-10 text-base font-semibold text-heading shadow-sm transition-all hover:brightness-95 active:scale-[0.98] disabled:opacity-60"
               >
                 <CheckCircle size={20} />
                 <span>{verifying ? "Looking up..." : "Find Prescription"}</span>

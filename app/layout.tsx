@@ -24,7 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-full flex flex-col bg-surface text-on-surface antialiased">
+      <body className="min-h-full flex flex-col bg-bg text-heading antialiased">
         {children}
       </body>
     </html>

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -35,10 +36,10 @@ const STATUS_LABEL: Record<RxStatus, string> = {
 };
 
 const STATUS_BADGE: Record<RxStatus, string> = {
-  open: "bg-[#FDB714]/15 text-[#FDB714] border-[#FDB714]/30",
-  completed: "bg-white/10 text-white/80 border-white/15",
-  expired: "bg-amber-500/15 text-amber-200 border-amber-400/30",
-  retracted: "bg-red-500/15 text-red-200 border-red-400/30",
+  open: "bg-primary/15 text-primary border-primary/30",
+  completed: "bg-success-soft/15 text-on-dark-accent border-on-dark-accent/30",
+  expired: "bg-surface-alt/15 text-on-dark border-on-dark/30",
+  retracted: "bg-danger-soft/15 text-danger-soft border-danger/30",
 };
 
 function closedMessage(rx: Prescription): string | null {
@@ -73,6 +74,45 @@ interface Line {
   item: RxItem;
   amount: number | null;
   complete: boolean;
+}
+
+const MED_IMAGES = ["/medicine_1.png", "/medicine_2.png", "/medicine_3.png", "/medicine_4.png"];
+
+function MedicineCarousel() {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setIndex((i) => (i + 1) % MED_IMAGES.length);
+    }, 3000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  return (
+    <div className="relative mb-4 h-44 w-full overflow-hidden rounded-2xl border border-on-dark/20 bg-accent-deep sm:h-52 print:hidden">
+      <Image
+        src={MED_IMAGES[index]}
+        alt=""
+        fill
+        sizes="(max-width: 640px) 100vw, 480px"
+        className="object-cover"
+        priority
+      />
+      <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2.5" aria-label="Image progress">
+        {MED_IMAGES.map((_, i) => (
+          <button
+            key={i}
+            type="button"
+            aria-label={`Show image ${i + 1}`}
+            onClick={() => setIndex(i)}
+            className={`h-2.5 w-2.5 rounded-full transition-all ${
+              i === index ? "bg-bg" : "bg-bg/40"
+            }`}
+          />
+        ))}
+      </div>
+    </div>
+  );
 }
 
 
@@ -251,37 +291,37 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
 
   if (phase.name !== "ready" || !rx) {
     return (
-      <div className="min-h-dvh bg-[#0d0e10] text-white">
+      <div className="min-h-dvh bg-accent-deep text-on-dark">
         <main className="mx-auto flex min-h-dvh w-full max-w-[420px] flex-col px-5 pb-10 pt-8 sm:max-w-[460px]">
           <header className="mb-6 flex items-center justify-between">
             <Link
               href="/scan"
               aria-label="Back to scanner"
               onClick={() => clearCodeLookup()}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-on-dark/10 text-bg hover:bg-on-dark/20"
             >
               <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M15 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </Link>
-            <h1 className="text-lg font-semibold tracking-wide text-white">Prescription</h1>
+            <h1 className="text-lg font-semibold tracking-wide text-bg">Prescription</h1>
             <div className="w-10" />
           </header>
 
           {phase.name === "loading" ? (
-            <div className="mx-auto mt-10 w-full rounded-2xl border border-white/10 bg-[#18191B] px-6 py-10 text-center shadow-xl" role="status">
-              <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-[#FDB714]" />
-              <p className="text-sm text-white/70">Looking up the prescription...</p>
+            <div className="mx-auto mt-10 w-full rounded-2xl border border-on-dark/20 bg-accent px-6 py-10 text-center shadow-xl" role="status">
+              <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-on-dark/20 border-t-primary" />
+              <p className="text-sm text-on-dark">Looking up the prescription...</p>
             </div>
           ) : (
-            <div className="mx-auto mt-10 w-full rounded-2xl border border-white/10 bg-[#18191B] px-6 py-8 text-center shadow-xl" role="alert">
-              <p className="text-sm font-semibold text-white" data-testid="rx-error">
+            <div className="mx-auto mt-10 w-full rounded-2xl border border-on-dark/20 bg-accent px-6 py-8 text-center shadow-xl" role="alert">
+              <p className="text-sm font-semibold text-bg" data-testid="rx-error">
                 {phase.name === "error" ? phase.message : ""}
               </p>
               <button
                 type="button"
                 onClick={newScan}
-                className="mt-5 inline-flex h-11 items-center justify-center rounded-xl bg-[#FDB714] px-6 text-sm font-semibold text-[#18191B] transition-colors hover:bg-[#eab015]"
+                className="mt-5 inline-flex h-11 items-center justify-center rounded-xl bg-surface px-6 text-sm font-semibold text-heading transition-colors hover:brightness-95"
               >
                 Back to scanner
               </button>
@@ -298,37 +338,39 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
   const ageSex = [rx.patient.age !== null ? `${rx.patient.age} yrs` : null, rx.patient.sex].filter(Boolean).join(" • ");
 
   return (
-    <div className="min-h-dvh bg-[#0d0e10] text-white print:bg-white print:text-slate-900">
-      <main className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col px-5 pb-8 pt-8 sm:max-w-[520px] print:max-w-none print:bg-white print:px-0 print:pt-0">
+    <div className="min-h-dvh bg-accent-deep text-on-dark print:bg-surface print:text-heading">
+      <main className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col px-5 pb-8 pt-8 sm:max-w-[520px] print:max-w-none print:bg-surface print:px-0 print:pt-0">
         <header className="mb-4 flex items-center justify-between print:hidden">
           <Link
             href="/scan"
             aria-label="Back to scanner"
             onClick={() => clearCodeLookup()}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-[#18191B] text-white transition-colors hover:bg-white/10"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-on-dark/20 bg-accent text-bg transition-colors hover:bg-accent/80"
           >
             <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M15 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </Link>
-          <h1 className="text-lg font-semibold tracking-wide text-white">Prescription</h1>
+          <h1 className="text-lg font-semibold tracking-wide text-bg">Prescription</h1>
           <div className="w-10" />
         </header>
 
-        <section className="w-full rounded-2xl border border-white/10 bg-[#18191B] p-5 shadow-xl print:rounded-none print:border-slate-200 print:bg-white print:shadow-none">
-          <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-4 print:border-slate-200">
+        <MedicineCarousel />
+
+        <section className="w-full rounded-2xl border border-on-dark/20 bg-accent p-5 shadow-xl print:rounded-none print:border-border print:bg-surface print:shadow-none">
+          <div className="flex items-start justify-between gap-3 border-b border-on-dark/20 pb-4 print:border-border">
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center">
-                <Hospital className="h-8 w-8 text-[#FDB714]" aria-hidden="true" />
+                <Hospital className="h-8 w-8 text-bg" aria-hidden="true" />
               </div>
               <div className="min-w-0">
-                <span className="text-[11px] font-medium text-white/50">Prescribed By</span>
+                <span className="text-[11px] font-medium text-on-dark">Prescribed By</span>
                 <div className="mt-0.5 flex items-center gap-1.5">
-                  <span className="truncate text-sm font-semibold text-white print:text-slate-900" data-testid="rx-hospital">
+                  <span className="truncate text-sm font-semibold text-bg print:text-heading" data-testid="rx-hospital">
                     {rx.hospital_name}
                   </span>
                 </div>
-                {rx.doctor_name && <p className="truncate text-[11px] text-white/50 print:text-slate-600">{rx.doctor_name}</p>}
+                {rx.doctor_name && <p className="truncate text-[11px] text-on-dark print:text-body">{rx.doctor_name}</p>}
               </div>
             </div>
             <div className="flex shrink-0 flex-col items-end gap-2">
@@ -338,22 +380,22 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
             </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-4 text-sm print:text-slate-700">
+          <div className="mt-4 grid grid-cols-2 gap-4 text-sm print:text-body">
             <div>
-              <span className="text-[11px] font-medium text-white/50 print:text-slate-500">Patient Name</span>
-              <div className="mt-0.5 break-words font-semibold text-white print:text-slate-900" data-testid="rx-patient">{rx.patient.name}</div>
+              <span className="text-[11px] font-medium text-on-dark print:text-muted">Patient Name</span>
+              <div className="mt-0.5 break-words font-semibold text-bg print:text-heading" data-testid="rx-patient">{rx.patient.name}</div>
             </div>
             <div className="text-right">
-              <span className="text-[11px] font-medium text-white/50 print:text-slate-500">Age &amp; Sex</span>
-              <div className="mt-0.5 font-medium text-white/85 print:text-slate-800">{ageSex || "-"}</div>
+              <span className="text-[11px] font-medium text-on-dark print:text-muted">Age &amp; Sex</span>
+              <div className="mt-0.5 font-medium text-bg/90 print:text-body">{ageSex || "-"}</div>
             </div>
             <div>
-              <span className="text-[11px] font-medium text-white/50 print:text-slate-500">Endod ID</span>
-              <div className="mt-0.5 font-mono text-xs font-semibold text-white/90 print:text-slate-800">Endod ID: {rx.patient.dedan_id || "-"}</div>
+              <span className="text-[11px] font-medium text-on-dark print:text-muted">Endod ID</span>
+              <div className="mt-0.5 font-mono text-xs font-semibold text-bg/90 print:text-body">Endod ID: {rx.patient.dedan_id || "-"}</div>
             </div>
             <div className="text-right">
-              <span className="text-[11px] font-medium text-white/50 print:text-slate-500">Written / Expires</span>
-              <div className="mt-0.5 font-mono text-xs font-semibold text-white/90 print:text-slate-800">{formatDate(rx.written_at)} / {formatDate(rx.expires_at)}</div>
+              <span className="text-[11px] font-medium text-on-dark print:text-muted">Written / Expires</span>
+              <div className="mt-0.5 font-mono text-xs font-semibold text-bg/90 print:text-body">{formatDate(rx.written_at)} / {formatDate(rx.expires_at)}</div>
             </div>
           </div>
 
@@ -362,7 +404,7 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
             <div
               role="status"
               data-testid="rx-closed"
-              className={`mt-4 flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm font-medium ${STATUS_BADGE[rx.status]} print:bg-white print:text-slate-800`}
+              className={`mt-4 flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm font-medium ${STATUS_BADGE[rx.status]} print:bg-surface print:text-heading`}
             >
               <span>{closed}</span>
             </div>
@@ -371,7 +413,7 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
             <div
               role="status"
               data-testid="rx-success"
-              className="mt-4 rounded-2xl border border-[#FDB714]/30 bg-[#FDB714]/10 px-4 py-3 text-sm font-medium text-[#FDB714] print:hidden"
+              className="mt-4 rounded-2xl border border-on-dark-accent/30 bg-success-soft/15 px-4 py-3 text-sm font-medium text-on-dark-accent print:hidden"
             >
               {success}
             </div>
@@ -385,16 +427,16 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
               return (
                 <article
                   key={item.item_index}
-                  className="rounded-xl border border-white/10 bg-[#0f1013] p-4 print:border-slate-200 print:bg-white"
+                  className="rounded-xl border border-on-dark/20 bg-accent-deep p-4 print:border-border print:bg-surface"
                   data-testid={`item-${item.item_index}`}
                 >
                   <div className="min-w-0">
-                    <h4 className="break-words text-[15px] font-semibold leading-snug tracking-wide text-white print:text-slate-900">{item.drug}</h4>
-                    {meta(item) && <div className="mt-0.5 break-words text-xs text-white/50 print:text-slate-500">{meta(item)}</div>}
-                    <div className="mt-1 text-xs text-white/60 print:text-slate-600">Qty: {item.quantity_text || formatQty(item.quantity_total)}</div>
-                    {item.notes && <div className="mt-1 break-words text-xs italic text-white/65 print:text-slate-600">{item.notes}</div>}
+                    <h4 className="break-words text-[15px] font-semibold leading-snug tracking-wide text-bg print:text-heading">{item.drug}</h4>
+                    {meta(item) && <div className="mt-0.5 break-words text-xs text-on-dark print:text-muted">{meta(item)}</div>}
+                    <div className="mt-1 text-xs text-on-dark print:text-body">Qty: {item.quantity_text || formatQty(item.quantity_total)}</div>
+                    {item.notes && <div className="mt-1 break-words text-xs italic text-on-dark print:text-body">{item.notes}</div>}
                     <div
-                      className={`mt-1.5 text-xs font-medium ${item.status === "given" ? "text-[#FDB714] print:text-amber-700" : "text-white/80 print:text-slate-700"}`}
+                      className={`mt-1.5 text-xs font-medium ${item.status === "given" ? "text-on-dark-accent print:text-success" : "text-bg/80 print:text-body"}`}
                       data-testid={`progress-${item.item_index}`}
                     >
                       {itemProgress(item)}
@@ -404,8 +446,8 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
                   {editable && (
                     <div className="mt-3 print:hidden">
                       {item.quantity_total !== null ? (
-                        <label htmlFor={inputId} className="flex flex-wrap items-center gap-2 text-sm text-white/80">
-                          <span className="text-white/70">Give now</span>
+                        <label htmlFor={inputId} className="flex flex-wrap items-center gap-2 text-sm text-bg/80">
+                          <span className="text-on-dark">Give now</span>
                           <input
                             id={inputId}
                             type="number"
@@ -419,12 +461,12 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
                               resetSubmission();
                               setAmounts((a) => ({ ...a, [item.item_index]: e.target.value }));
                             }}
-                            className="h-10 w-24 rounded-lg border border-white/10 bg-[#24262a] px-3 font-mono text-sm text-white focus:border-[#FDB714]/60 focus:outline-none focus:ring-1 focus:ring-[#FDB714]/60"
+                            className="h-10 w-24 rounded-lg border border-on-dark/20 bg-accent px-3 font-mono text-sm text-bg focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                           />
-                          <span className="text-xs text-white/50">of {formatQty(left)} left</span>
+                          <span className="text-xs text-on-dark">of {formatQty(left)} left</span>
                         </label>
                       ) : (
-                        <label htmlFor={inputId} className="flex cursor-pointer items-center gap-2 text-sm text-white/80">
+                        <label htmlFor={inputId} className="flex cursor-pointer items-center gap-2 text-sm text-bg/80">
                           <input
                             id={inputId}
                             type="checkbox"
@@ -433,9 +475,9 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
                               resetSubmission();
                               setFully((f) => ({ ...f, [item.item_index]: e.target.checked }));
                             }}
-                            className="h-5 w-5 accent-[#FDB714]"
+                            className="h-5 w-5 accent-primary"
                           />
-                          <span className="text-white/80">Given fully</span>
+                          <span className="text-bg/80">Given fully</span>
                         </label>
                       )}
                     </div>
@@ -478,20 +520,20 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
                 </div>
 
                 {step === "confirm" && (
-                  <div className="mt-4 rounded-xl border border-[#FDB714]/30 bg-[#0f1013] px-4 py-4" data-testid="confirm-panel">
-                    <p className="text-sm font-semibold text-white">Confirm what you are giving now</p>
-                    <ul className="mt-2 flex flex-col gap-1 text-sm text-white/80">
+                  <div className="mt-4 rounded-xl border border-primary/30 bg-accent-deep px-4 py-4" data-testid="confirm-panel">
+                    <p className="text-sm font-semibold text-bg">Confirm what you are giving now</p>
+                    <ul className="mt-2 flex flex-col gap-1 text-sm text-on-dark">
                       {lines.map((l) => (
                         <li key={l.item.item_index} className="flex justify-between gap-3">
                           <span className="min-w-0 break-words">{l.item.drug}</span>
-                          <span className="shrink-0 font-mono text-[#FDB714]">
+                          <span className="shrink-0 font-mono text-primary">
                             {l.amount !== null ? `give ${formatQty(l.amount)} (${formatQty(remaining(l.item))} left)` : "given fully"}
                           </span>
                         </li>
                       ))}
                     </ul>
-                    <p className="mt-3 break-words text-xs text-white/60">
-                      Recorded as given at <span className="font-semibold text-white/85">{pharmacyName.trim()}</span>
+                    <p className="mt-3 break-words text-xs text-on-dark">
+                      Recorded as given at <span className="font-semibold text-bg/90">{pharmacyName.trim()}</span>
                       {pharmacistName.trim() ? ` by ${pharmacistName.trim()}` : ""}. This cannot be undone.
                     </p>
                   </div>
@@ -501,44 +543,44 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
                   <div
                     role="alert"
                     data-testid="dispense-error"
-                    className="mt-4 rounded-lg border border-red-400/30 bg-red-500/15 px-3 py-2 text-sm text-red-100"
+                    className="mt-4 rounded-lg border border-danger/40 bg-danger-soft/20 px-3 py-2 text-sm text-danger-soft"
                   >
                     {formError}
                   </div>
                 )}
 
                 <div className="mt-5 flex flex-col gap-3">
-                  {step === "edit" ? (
-                    <button type="submit" className="fixed -left-[9999px] top-auto">
-                      Review dispense
-                    </button>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        onClick={submit}
-                        disabled={sending}
-                        className="flex h-12 w-full items-center justify-center rounded-xl bg-[#FDB714] text-sm font-semibold text-[#18191B] transition-all hover:bg-[#eab015] active:scale-[0.99] disabled:opacity-60"
-                      >
-                        {sending ? "Dispensing..." : canRetry ? "Try again" : "Confirm dispense"}
+                    {step === "edit" ? (
+                      <button type="submit" className="fixed -left-[9999px] top-auto">
+                        Review dispense
                       </button>
-                      <button
-                        type="button"
-                        disabled={sending}
-                        onClick={() => {
-                          resetSubmission();
-                          setStep("edit");
-                        }}
-                        className="flex h-11 w-full items-center justify-center rounded-xl border border-white/10 bg-white/5 text-sm font-medium text-white/90 transition-colors hover:bg-white/10 disabled:opacity-60"
-                      >
-                        Back
-                      </button>
-                    </>
-                  )}
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={submit}
+                          disabled={sending}
+                          className="flex h-12 w-full items-center justify-center rounded-xl bg-surface text-sm font-semibold text-heading transition-all hover:brightness-95 active:scale-[0.99] disabled:opacity-60"
+                        >
+                          {sending ? "Dispensing..." : canRetry ? "Try again" : "Confirm dispense"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={sending}
+                          onClick={() => {
+                            resetSubmission();
+                            setStep("edit");
+                          }}
+                          className="flex h-11 w-full items-center justify-center rounded-xl border border-on-dark/20 bg-on-dark/5 text-sm font-medium text-bg transition-colors hover:bg-on-dark/10 disabled:opacity-60"
+                        >
+                          Back
+                        </button>
+                      </>
+                    )}
                 </div>
               </>
             ) : (
-              <p className="mt-4 text-sm text-white/60">This prescription is not open for dispensing.</p>
+              <p className="mt-4 text-sm text-on-dark">This prescription is not open for dispensing.</p>
             )}
           </form>
         </section>
@@ -547,7 +589,7 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
           <button
             type="button"
             onClick={newScan}
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 text-sm font-medium text-white/90 transition-colors hover:bg-white/10"
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-on-dark/20 bg-on-dark/5 text-sm font-medium text-bg transition-colors hover:bg-on-dark/10"
           >
             <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M15 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
