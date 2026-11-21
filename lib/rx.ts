@@ -102,8 +102,8 @@ export function formatDate(iso: string | null | undefined): string {
   if (Number.isNaN(d.getTime())) return "-";
   return new Intl.DateTimeFormat("en-GB", {
     timeZone: TZ,
-    day: "numeric",
-    month: "short",
+    day: "2-digit",
+    month: "2-digit",
     year: "numeric",
   }).format(d);
 }

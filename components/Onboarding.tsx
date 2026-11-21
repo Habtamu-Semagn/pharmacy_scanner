@@ -4,7 +4,7 @@ import Link from "next/link";
 
 function ScannerIllustration() {
   return (
-    <svg className="h-full w-full text-bg" fill="none" viewBox="0 0 200 200" aria-hidden="true">
+    <svg className="h-full w-full text-primary" fill="none" viewBox="0 0 200 200" aria-hidden="true">
       <path d="M 22 55 L 22 34 C 22 25.16 29.16 18 38 18 L 59 18" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="8" />
       <path d="M 141 18 L 162 18 C 170.84 18 178 25.16 178 34 L 178 55" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="8" />
       <path d="M 22 145 L 22 166 C 22 174.84 29.16 182 38 182 L 59 182" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="8" />
@@ -61,8 +61,8 @@ function ContinueDock() {
 
 export default function OnboardingScreen() {
   return (
-    <main className="relative flex min-h-dvh w-full flex-col bg-accent-deep">
-      <section className="relative flex min-h-[46dvh] flex-1 items-center justify-center bg-rings px-6 pb-20 pt-16 sm:min-h-[54dvh] sm:pb-24 sm:pt-20">
+    <main className="relative flex min-h-dvh w-full flex-col bg-bg">
+      <section className="relative flex min-h-[46dvh] flex-1 items-center justify-center bg-surface-alt px-6 pb-20 pt-16 sm:min-h-[54dvh] sm:pb-24 sm:pt-20">
         <div className="relative flex h-52 w-52 items-center justify-center sm:h-60 sm:w-60">
           <ScannerIllustration />
         </div>
@@ -70,7 +70,7 @@ export default function OnboardingScreen() {
 
       <div className="relative z-10 -mt-[62px] w-full">
         <WaveDivider />
-        <section className="relative -mt-px bg-bg px-6 pb-24 pt-4 text-center sm:px-8 sm:pt-6">
+        <section className="relative -mt-px bg-bg px-6 pb-24 pt-10 text-center sm:px-8 sm:pt-12">
           <div className="mx-auto max-w-2xl">
             <h1 className="mb-3 text-[34px] font-bold tracking-tight text-heading sm:text-[40px]">Get Started</h1>
             <p className="mx-auto mb-8 max-w-xl text-[15px] font-medium leading-[1.7] text-body sm:text-base">

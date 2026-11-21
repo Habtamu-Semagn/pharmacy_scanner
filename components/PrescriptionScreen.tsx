@@ -36,10 +36,10 @@ const STATUS_LABEL: Record<RxStatus, string> = {
 };
 
 const STATUS_BADGE: Record<RxStatus, string> = {
-  open: "bg-primary/15 text-primary border-primary/30",
-  completed: "bg-success-soft/15 text-on-dark-accent border-on-dark-accent/30",
-  expired: "bg-surface-alt/15 text-on-dark border-on-dark/30",
-  retracted: "bg-danger-soft/15 text-danger-soft border-danger/30",
+  open: "bg-primary/10 text-primary border-primary/20",
+  completed: "bg-surface-alt text-heading border-border",
+  expired: "bg-surface-alt text-muted border-border",
+  retracted: "bg-surface-alt text-heading border-border",
 };
 
 function closedMessage(rx: Prescription): string | null {
@@ -89,7 +89,7 @@ function MedicineCarousel() {
   }, []);
 
   return (
-    <div className="relative mb-4 h-44 w-full overflow-hidden rounded-2xl border border-on-dark/20 bg-accent-deep sm:h-52 print:hidden">
+    <div className="relative mb-4 h-44 w-full overflow-hidden rounded-2xl border border-border bg-surface-alt sm:h-52 print:hidden">
       <Image
         src={MED_IMAGES[index]}
         alt=""
@@ -291,37 +291,37 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
 
   if (phase.name !== "ready" || !rx) {
     return (
-      <div className="min-h-dvh bg-accent-deep text-on-dark">
+      <div className="min-h-dvh bg-bg text-heading">
         <main className="mx-auto flex min-h-dvh w-full max-w-[420px] flex-col px-5 pb-10 pt-8 sm:max-w-[460px]">
           <header className="mb-6 flex items-center justify-between">
             <Link
               href="/scan"
               aria-label="Back to scanner"
               onClick={() => clearCodeLookup()}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-on-dark/10 text-bg hover:bg-on-dark/20"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-surface text-heading hover:bg-surface-alt"
             >
               <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M15 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </Link>
-            <h1 className="text-lg font-semibold tracking-wide text-bg">Prescription</h1>
+            <h1 className="text-lg font-semibold tracking-wide text-heading">Prescription</h1>
             <div className="w-10" />
           </header>
 
           {phase.name === "loading" ? (
-            <div className="mx-auto mt-10 w-full rounded-2xl border border-on-dark/20 bg-accent px-6 py-10 text-center shadow-xl" role="status">
-              <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-on-dark/20 border-t-primary" />
-              <p className="text-sm text-on-dark">Looking up the prescription...</p>
+            <div className="mx-auto mt-10 w-full rounded-2xl border border-border bg-surface px-6 py-10 text-center shadow-sm" role="status">
+              <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-border border-t-primary" />
+              <p className="text-sm text-muted">Looking up the prescription...</p>
             </div>
           ) : (
-            <div className="mx-auto mt-10 w-full rounded-2xl border border-on-dark/20 bg-accent px-6 py-8 text-center shadow-xl" role="alert">
-              <p className="text-sm font-semibold text-bg" data-testid="rx-error">
+            <div className="mx-auto mt-10 w-full rounded-2xl border border-border bg-surface px-6 py-8 text-center shadow-sm" role="alert">
+              <p className="text-sm font-semibold text-heading" data-testid="rx-error">
                 {phase.name === "error" ? phase.message : ""}
               </p>
               <button
                 type="button"
                 onClick={newScan}
-                className="mt-5 inline-flex h-11 items-center justify-center rounded-xl bg-surface px-6 text-sm font-semibold text-heading transition-colors hover:brightness-95"
+                className="mt-5 inline-flex h-11 items-center justify-center rounded-xl bg-primary px-6 text-sm font-semibold text-on-primary transition-colors hover:brightness-95"
               >
                 Back to scanner
               </button>
@@ -338,39 +338,39 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
   const ageSex = [rx.patient.age !== null ? `${rx.patient.age} yrs` : null, rx.patient.sex].filter(Boolean).join(" • ");
 
   return (
-    <div className="min-h-dvh bg-accent-deep text-on-dark print:bg-surface print:text-heading">
+    <div className="min-h-dvh bg-bg text-heading print:bg-surface print:text-heading">
       <main className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col px-5 pb-8 pt-8 sm:max-w-[520px] print:max-w-none print:bg-surface print:px-0 print:pt-0">
         <header className="mb-4 flex items-center justify-between print:hidden">
           <Link
             href="/scan"
             aria-label="Back to scanner"
             onClick={() => clearCodeLookup()}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-on-dark/20 bg-accent text-bg transition-colors hover:bg-accent/80"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-surface text-heading transition-colors hover:bg-surface-alt"
           >
             <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M15 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </Link>
-          <h1 className="text-lg font-semibold tracking-wide text-bg">Prescription</h1>
+          <h1 className="text-lg font-semibold tracking-wide text-heading">Prescription</h1>
           <div className="w-10" />
         </header>
 
         <MedicineCarousel />
 
-        <section className="w-full rounded-2xl border border-on-dark/20 bg-accent p-5 shadow-xl print:rounded-none print:border-border print:bg-surface print:shadow-none">
-          <div className="flex items-start justify-between gap-3 border-b border-on-dark/20 pb-4 print:border-border">
+        <section className="w-full rounded-2xl border border-border bg-surface p-5 shadow-sm print:rounded-none print:border-border print:bg-surface print:shadow-none">
+          <div className="flex items-start justify-between gap-3 border-b border-border pb-4 print:border-border">
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center">
-                <Hospital className="h-8 w-8 text-bg" aria-hidden="true" />
+                <Hospital className="h-8 w-8 text-primary" aria-hidden="true" />
               </div>
               <div className="min-w-0">
-                <span className="text-[11px] font-medium text-on-dark">Prescribed By</span>
+                <span className="text-[11px] font-medium text-muted">Prescribed By</span>
                 <div className="mt-0.5 flex items-center gap-1.5">
-                  <span className="truncate text-sm font-semibold text-bg print:text-heading" data-testid="rx-hospital">
+                  <span className="truncate text-sm font-semibold text-heading print:text-heading" data-testid="rx-hospital">
                     {rx.hospital_name}
                   </span>
                 </div>
-                {rx.doctor_name && <p className="truncate text-[11px] text-on-dark print:text-body">{rx.doctor_name}</p>}
+                {rx.doctor_name && <p className="truncate text-[11px] text-muted print:text-body">{rx.doctor_name}</p>}
               </div>
             </div>
             <div className="flex shrink-0 flex-col items-end gap-2">
@@ -382,20 +382,23 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
 
           <div className="mt-4 grid grid-cols-2 gap-4 text-sm print:text-body">
             <div>
-              <span className="text-[11px] font-medium text-on-dark print:text-muted">Patient Name</span>
-              <div className="mt-0.5 break-words font-semibold text-bg print:text-heading" data-testid="rx-patient">{rx.patient.name}</div>
+              <span className="text-[11px] font-medium text-muted print:text-muted">Patient Name</span>
+              <div className="mt-0.5 break-words font-semibold text-heading print:text-heading" data-testid="rx-patient">{rx.patient.name}</div>
             </div>
             <div className="text-right">
-              <span className="text-[11px] font-medium text-on-dark print:text-muted">Age &amp; Sex</span>
-              <div className="mt-0.5 font-medium text-bg/90 print:text-body">{ageSex || "-"}</div>
+              <span className="text-[11px] font-medium text-muted print:text-muted">Age &amp; Sex</span>
+              <div className="mt-0.5 font-medium text-body print:text-body">{ageSex || "-"}</div>
             </div>
             <div>
-              <span className="text-[11px] font-medium text-on-dark print:text-muted">Endod ID</span>
-              <div className="mt-0.5 font-mono text-xs font-semibold text-bg/90 print:text-body">Endod ID: {rx.patient.dedan_id || "-"}</div>
+              <span className="text-[11px] font-medium text-muted print:text-muted">Endod ID</span>
+              <div className="mt-0.5 font-mono text-xs font-semibold text-body print:text-body">Endod ID: {rx.patient.dedan_id || "-"}</div>
             </div>
             <div className="text-right">
-              <span className="text-[11px] font-medium text-on-dark print:text-muted">Written / Expires</span>
-              <div className="mt-0.5 font-mono text-xs font-semibold text-bg/90 print:text-body">{formatDate(rx.written_at)} / {formatDate(rx.expires_at)}</div>
+              <span className="text-[11px] font-medium text-muted print:text-muted">Date</span>
+              <div className="mt-0.5 font-mono text-xs font-semibold text-body print:text-body">
+                <div>W: {formatDate(rx.written_at)}</div>
+                <div>E: {formatDate(rx.expires_at)}</div>
+              </div>
             </div>
           </div>
 
@@ -413,7 +416,7 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
             <div
               role="status"
               data-testid="rx-success"
-              className="mt-4 rounded-2xl border border-on-dark-accent/30 bg-success-soft/15 px-4 py-3 text-sm font-medium text-on-dark-accent print:hidden"
+              className="mt-4 rounded-2xl border border-border bg-surface-alt px-4 py-3 text-sm font-medium text-heading print:hidden"
             >
               {success}
             </div>
@@ -427,16 +430,16 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
               return (
                 <article
                   key={item.item_index}
-                  className="rounded-xl border border-on-dark/20 bg-accent-deep p-4 print:border-border print:bg-surface"
+                  className="rounded-xl border border-border bg-bg p-4 print:border-border print:bg-surface"
                   data-testid={`item-${item.item_index}`}
                 >
                   <div className="min-w-0">
-                    <h4 className="break-words text-[15px] font-semibold leading-snug tracking-wide text-bg print:text-heading">{item.drug}</h4>
-                    {meta(item) && <div className="mt-0.5 break-words text-xs text-on-dark print:text-muted">{meta(item)}</div>}
-                    <div className="mt-1 text-xs text-on-dark print:text-body">Qty: {item.quantity_text || formatQty(item.quantity_total)}</div>
-                    {item.notes && <div className="mt-1 break-words text-xs italic text-on-dark print:text-body">{item.notes}</div>}
+                    <h4 className="break-words text-[15px] font-semibold leading-snug tracking-wide text-heading print:text-heading">{item.drug}</h4>
+                    {meta(item) && <div className="mt-0.5 break-words text-xs text-muted print:text-muted">{meta(item)}</div>}
+                    <div className="mt-1 text-xs text-muted print:text-body">Qty: {item.quantity_text || formatQty(item.quantity_total)}</div>
+                    {item.notes && <div className="mt-1 break-words text-xs italic text-muted print:text-body">{item.notes}</div>}
                     <div
-                      className={`mt-1.5 text-xs font-medium ${item.status === "given" ? "text-on-dark-accent print:text-success" : "text-bg/80 print:text-body"}`}
+                      className={`mt-1.5 text-xs font-medium ${item.status === "given" ? "text-heading print:text-success" : "text-body print:text-body"}`}
                       data-testid={`progress-${item.item_index}`}
                     >
                       {itemProgress(item)}
@@ -446,8 +449,8 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
                   {editable && (
                     <div className="mt-3 print:hidden">
                       {item.quantity_total !== null ? (
-                        <label htmlFor={inputId} className="flex flex-wrap items-center gap-2 text-sm text-bg/80">
-                          <span className="text-on-dark">Give now</span>
+                        <label htmlFor={inputId} className="flex flex-wrap items-center gap-2 text-sm text-body">
+                          <span className="text-muted">Give now</span>
                           <input
                             id={inputId}
                             type="number"
@@ -461,12 +464,12 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
                               resetSubmission();
                               setAmounts((a) => ({ ...a, [item.item_index]: e.target.value }));
                             }}
-                            className="h-10 w-24 rounded-lg border border-on-dark/20 bg-accent px-3 font-mono text-sm text-bg focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                            className="h-10 w-24 rounded-lg border border-border bg-surface px-3 font-mono text-sm text-heading focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                           />
-                          <span className="text-xs text-on-dark">of {formatQty(left)} left</span>
+                          <span className="text-xs text-muted">of {formatQty(left)} left</span>
                         </label>
                       ) : (
-                        <label htmlFor={inputId} className="flex cursor-pointer items-center gap-2 text-sm text-bg/80">
+                        <label htmlFor={inputId} className="flex cursor-pointer items-center gap-2 text-sm text-body">
                           <input
                             id={inputId}
                             type="checkbox"
@@ -477,7 +480,7 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
                             }}
                             className="h-5 w-5 accent-primary"
                           />
-                          <span className="text-bg/80">Given fully</span>
+                          <span className="text-body">Given fully</span>
                         </label>
                       )}
                     </div>
@@ -520,20 +523,20 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
                 </div>
 
                 {step === "confirm" && (
-                  <div className="mt-4 rounded-xl border border-primary/30 bg-accent-deep px-4 py-4" data-testid="confirm-panel">
-                    <p className="text-sm font-semibold text-bg">Confirm what you are giving now</p>
-                    <ul className="mt-2 flex flex-col gap-1 text-sm text-on-dark">
+                  <div className="mt-4 rounded-xl border border-border bg-bg px-4 py-4" data-testid="confirm-panel">
+                    <p className="text-sm font-semibold text-heading">Confirm what you are giving now</p>
+                    <ul className="mt-2 flex flex-col gap-1 text-sm text-muted">
                       {lines.map((l) => (
                         <li key={l.item.item_index} className="flex justify-between gap-3">
                           <span className="min-w-0 break-words">{l.item.drug}</span>
-                          <span className="shrink-0 font-mono text-primary">
+                          <span className="shrink-0 font-mono text-heading">
                             {l.amount !== null ? `give ${formatQty(l.amount)} (${formatQty(remaining(l.item))} left)` : "given fully"}
                           </span>
                         </li>
                       ))}
                     </ul>
-                    <p className="mt-3 break-words text-xs text-on-dark">
-                      Recorded as given at <span className="font-semibold text-bg/90">{pharmacyName.trim()}</span>
+                    <p className="mt-3 break-words text-xs text-muted">
+                      Recorded as given at <span className="font-semibold text-heading">{pharmacyName.trim()}</span>
                       {pharmacistName.trim() ? ` by ${pharmacistName.trim()}` : ""}. This cannot be undone.
                     </p>
                   </div>
@@ -543,7 +546,7 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
                   <div
                     role="alert"
                     data-testid="dispense-error"
-                    className="mt-4 rounded-lg border border-danger/40 bg-danger-soft/20 px-3 py-2 text-sm text-danger-soft"
+                    className="mt-4 rounded-lg border border-border bg-surface-alt px-3 py-2 text-sm text-heading"
                   >
                     {formError}
                   </div>
@@ -560,7 +563,7 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
                           type="button"
                           onClick={submit}
                           disabled={sending}
-                          className="flex h-12 w-full items-center justify-center rounded-xl bg-surface text-sm font-semibold text-heading transition-all hover:brightness-95 active:scale-[0.99] disabled:opacity-60"
+                          className="flex h-12 w-full items-center justify-center rounded-xl bg-primary text-sm font-semibold text-on-primary transition-all hover:brightness-95 active:scale-[0.99] disabled:opacity-60"
                         >
                           {sending ? "Dispensing..." : canRetry ? "Try again" : "Confirm dispense"}
                         </button>
@@ -571,7 +574,7 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
                             resetSubmission();
                             setStep("edit");
                           }}
-                          className="flex h-11 w-full items-center justify-center rounded-xl border border-on-dark/20 bg-on-dark/5 text-sm font-medium text-bg transition-colors hover:bg-on-dark/10 disabled:opacity-60"
+                          className="flex h-11 w-full items-center justify-center rounded-xl border border-border bg-surface text-sm font-medium text-heading transition-colors hover:bg-surface-alt disabled:opacity-60"
                         >
                           Back
                         </button>
@@ -580,7 +583,7 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
                 </div>
               </>
             ) : (
-              <p className="mt-4 text-sm text-on-dark">This prescription is not open for dispensing.</p>
+              <p className="mt-4 text-sm text-muted">This prescription is not open for dispensing.</p>
             )}
           </form>
         </section>
@@ -589,7 +592,7 @@ export default function PrescriptionScreen({ token }: { token: string | null }) 
           <button
             type="button"
             onClick={newScan}
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-on-dark/20 bg-on-dark/5 text-sm font-medium text-bg transition-colors hover:bg-on-dark/10"
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface text-sm font-medium text-heading transition-colors hover:bg-surface-alt"
           >
             <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M15 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
